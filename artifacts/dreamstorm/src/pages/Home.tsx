@@ -10,25 +10,29 @@ import { Footer } from "@/components/storefront/Footer";
 import { CartSheet } from "@/components/storefront/CartSheet";
 import { CheckoutDialog } from "@/components/storefront/CheckoutDialog";
 import { Category } from "@/data/products";
+import { useProducts } from "@/lib/useProducts";
 
 export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<Category | "All">("All");
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const { products, isLoading } = useProducts();
 
   return (
     <main className="min-h-screen bg-background flex flex-col font-sans">
       <Header />
       <Hero />
       <CategoryTiles onSelectCategory={setSelectedCategory} />
-      <BestSellers />
-      <ProductGrid 
-        selectedCategory={selectedCategory} 
-        onCategorySelect={setSelectedCategory} 
+      <BestSellers products={products} />
+      <ProductGrid
+        products={products}
+        isLoading={isLoading}
+        selectedCategory={selectedCategory}
+        onCategorySelect={setSelectedCategory}
       />
       <HowItWorks />
       <Benefits />
       <Footer />
-      
+
       <CartSheet onCheckout={() => setIsCheckoutOpen(true)} />
       <CheckoutDialog open={isCheckoutOpen} onOpenChange={setIsCheckoutOpen} />
     </main>

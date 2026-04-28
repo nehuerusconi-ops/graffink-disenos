@@ -8,3 +8,57 @@
 export interface HealthStatus {
   status: string;
 }
+
+export interface ErrorResponse {
+  error: string;
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  imagePath: string;
+  /** @nullable */
+  filePath: string | null;
+  isBestSeller: boolean;
+  isPublished: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProductInput {
+  id: string;
+  name: string;
+  category: string;
+  /** @minimum 0 */
+  price: number;
+  imagePath: string;
+  /** @nullable */
+  filePath?: string | null;
+  isBestSeller?: boolean;
+  isPublished?: boolean;
+}
+
+export interface ProductUpdate {
+  name?: string;
+  category?: string;
+  /** @minimum 0 */
+  price?: number;
+  imagePath?: string;
+  /** @nullable */
+  filePath?: string | null;
+  isBestSeller?: boolean;
+  isPublished?: boolean;
+}
+
+export type RequestUploadUrlBody = {
+  name: string;
+  size: number;
+  contentType: string;
+};
+
+export type RequestUploadUrl200 = {
+  uploadURL: string;
+  objectPath: string;
+};

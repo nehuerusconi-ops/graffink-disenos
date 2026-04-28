@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { Link } from "wouter";
-import { ShoppingCart, Menu, X } from "lucide-react";
+import { useLocation } from "wouter";
+import { ShoppingCart, Menu, X, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "./CartContext";
 import { motion, AnimatePresence } from "framer-motion";
@@ -9,6 +9,7 @@ export function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { totalItems, setIsCartOpen } = useCart();
+  const [, navigate] = useLocation();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -73,6 +74,16 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="hidden md:inline-flex text-white/70 hover:text-white hover:bg-white/10"
+            onClick={() => navigate("/admin")}
+            title="Panel de administración"
+          >
+            <Lock className="h-4 w-4" />
+          </Button>
+
           <Button
             variant="ghost"
             size="icon"

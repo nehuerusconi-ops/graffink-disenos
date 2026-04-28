@@ -1,26 +1,29 @@
 import { useState, useMemo } from "react";
-import { PRODUCTS, CATEGORIES, Category } from "@/data/products";
+import { CATEGORIES, Category, Product } from "@/data/products";
 import { ProductCard } from "./ProductCard";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
-import { motion } from "framer-motion";
+import { Search, Loader2 } from "lucide-react";
 
-export function ProductGrid({ 
-  selectedCategory, 
-  onCategorySelect 
-}: { 
+export function ProductGrid({
+  products,
+  isLoading,
+  selectedCategory,
+  onCategorySelect,
+}: {
+  products: Product[];
+  isLoading: boolean;
   selectedCategory: Category | "All";
   onCategorySelect: (cat: Category | "All") => void;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredProducts = useMemo(() => {
-    return PRODUCTS.filter((product) => {
+    return products.filter((product) => {
       const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = selectedCategory === "All" || product.category === selectedCategory;
       return matchesSearch && matchesCategory;
     });
-  }, [searchQuery, selectedCategory]);
+  }, [products, searchQuery, selectedCategory]);
 
   return (
     <section id="products" className="py-24 bg-background relative z-10">
@@ -69,10 +72,14 @@ export function ProductGrid({
           </div>
         </div>
 
-        {filteredProducts.length === 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-24">
+            <Loader2 className="h-8 w-8 animate-spin text-white/40" />
+          </div>
+        ) : filteredProducts.length === 0 ? (
           <div className="text-center py-24 border border-dashed border-white/10 rounded-sm">
             <p className="text-xl text-white/50 font-medium">No se encontraron diseños.</p>
-            <button 
+            <button
               onClick={() => { setSearchQuery(""); onCategorySelect("All"); }}
               className="mt-4 text-primary hover:underline font-bold"
             >

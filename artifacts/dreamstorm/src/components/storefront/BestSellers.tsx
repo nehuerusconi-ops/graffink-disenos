@@ -1,12 +1,11 @@
-import { useState } from "react";
-import { PRODUCTS, Category } from "@/data/products";
+import { Product } from "@/data/products";
 import { ProductCard } from "./ProductCard";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
-export function BestSellers() {
-  const bestSellers = PRODUCTS.filter((p) => p.isBestSeller);
+export function BestSellers({ products }: { products: Product[] }) {
+  const bestSellers = products.filter((p) => p.isBestSeller);
+
+  if (bestSellers.length === 0) return null;
 
   return (
     <section id="bestsellers" className="py-24 bg-[#0a0a0a] relative z-10 overflow-hidden">

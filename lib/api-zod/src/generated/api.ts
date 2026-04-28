@@ -14,3 +14,109 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * @summary List products
+ */
+export const ListProductsResponseItem = zod.object({
+  id: zod.string(),
+  name: zod.string(),
+  category: zod.string(),
+  price: zod.number(),
+  imagePath: zod.string(),
+  filePath: zod.string().nullable(),
+  isBestSeller: zod.boolean(),
+  isPublished: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListProductsResponse = zod.array(ListProductsResponseItem);
+
+/**
+ * @summary Create product
+ */
+export const createProductBodyPriceMin = 0;
+
+export const CreateProductBody = zod.object({
+  id: zod.string(),
+  name: zod.string(),
+  category: zod.string(),
+  price: zod.number().min(createProductBodyPriceMin),
+  imagePath: zod.string(),
+  filePath: zod.string().nullish(),
+  isBestSeller: zod.boolean().optional(),
+  isPublished: zod.boolean().optional(),
+});
+
+/**
+ * @summary Get product
+ */
+export const GetProductParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const GetProductResponse = zod.object({
+  id: zod.string(),
+  name: zod.string(),
+  category: zod.string(),
+  price: zod.number(),
+  imagePath: zod.string(),
+  filePath: zod.string().nullable(),
+  isBestSeller: zod.boolean(),
+  isPublished: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Update product
+ */
+export const UpdateProductParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const updateProductBodyPriceMin = 0;
+
+export const UpdateProductBody = zod.object({
+  name: zod.string().optional(),
+  category: zod.string().optional(),
+  price: zod.number().min(updateProductBodyPriceMin).optional(),
+  imagePath: zod.string().optional(),
+  filePath: zod.string().nullish(),
+  isBestSeller: zod.boolean().optional(),
+  isPublished: zod.boolean().optional(),
+});
+
+export const UpdateProductResponse = zod.object({
+  id: zod.string(),
+  name: zod.string(),
+  category: zod.string(),
+  price: zod.number(),
+  imagePath: zod.string(),
+  filePath: zod.string().nullable(),
+  isBestSeller: zod.boolean(),
+  isPublished: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete product
+ */
+export const DeleteProductParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+/**
+ * @summary Request a presigned upload URL
+ */
+export const RequestUploadUrlBody = zod.object({
+  name: zod.string(),
+  size: zod.number(),
+  contentType: zod.string(),
+});
+
+export const RequestUploadUrlResponse = zod.object({
+  uploadURL: zod.string(),
+  objectPath: zod.string(),
+});
