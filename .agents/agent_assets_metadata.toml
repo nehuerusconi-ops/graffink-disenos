@@ -1,0 +1,128 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "DI-nbivnkU48mJ-mCZP6a"
+uri = "file://artifacts/dreamstorm/public/images/hero.png"
+type = "image"
+title = "hero background DTF print studio"
+
+[[generated]]
+id = "tpgO0owG2hfOQv5S7ETGz"
+uri = "file://artifacts/dreamstorm/public/images/products/urban-skull.png"
+type = "image"
+title = "streetwear skull artwork"
+
+[[generated]]
+id = "aLd0orP6s0pjRe4xJARNS"
+uri = "file://artifacts/dreamstorm/public/images/products/street-tiger.png"
+type = "image"
+title = "neon tiger graphic"
+
+[[generated]]
+id = "BWaKaZUPXfubNSjB6q66d"
+uri = "file://artifacts/dreamstorm/public/images/products/retro-wave.png"
+type = "image"
+title = "80s synthwave geometric"
+
+[[generated]]
+id = "gNCV18Ukmngumu7v8yA1c"
+uri = "file://artifacts/dreamstorm/public/images/products/anime-fire.png"
+type = "image"
+title = "anime warrior with flames"
+
+[[generated]]
+id = "nr9F98X-9kI8jeowHZiVR"
+uri = "file://artifacts/dreamstorm/public/images/products/vintage-motor.png"
+type = "image"
+title = "vintage motorcycle engine"
+
+[[generated]]
+id = "SJ0c0jjceuN-2qZV66rpe"
+uri = "file://artifacts/dreamstorm/public/images/products/cyber-samurai.png"
+type = "image"
+title = "cyberpunk samurai"
+
+[[generated]]
+id = "LRMPZQQuVDG8eA9X5AivN"
+uri = "file://artifacts/dreamstorm/public/images/products/neon-dragon.png"
+type = "image"
+title = "electric blue dragon"
+
+[[generated]]
+id = "_ozgatM7wteBrbO5UFHPz"
+uri = "file://artifacts/dreamstorm/public/images/products/y2k-aesthetic.png"
+type = "image"
+title = "early 2000s graphic"
+
+[[generated]]
+id = "anaMVyd8p_1VATEYokfCk"
+uri = "file://artifacts/dreamstorm/public/images/products/demo-download.png"
+type = "image"
+title = "Placeholder DTF PNG"
+
+[[generated]]
+id = "Ew7SxYflrLbGlSmiWQ06B"
+uri = "file://artifacts/dreamstorm/public/images/products/messi-goat.png"
+type = "image"
+title = "soccer GOAT champion"
+
+[[generated]]
+id = "UdkVCWv6fmeaayMGScAiB"
+uri = "file://attached_assets/generated_images/generated_image_0.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "1pQQQLCr-u40YIP1C5biw"
+uri = "file://attached_assets/generated_images/generated_image_1.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "20RIzB4L1BVhhPjoitIQC"
+uri = "file://attached_assets/generated_images/generated_image_2.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "84QMDgJqWF8ptL2-Djlm6"
+uri = "file://attached_assets/generated_images/generated_image_3.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "r4vW9fAbx3V4q-tPhbWmS"
+uri = "file://attached_assets/generated_images/generated_image_4.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "HMN9Gr7kyw9cKyC2RpWdP"
+uri = "file://attached_assets/generated_images/generated_image_5.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "wmksxe6m0Q3TPcFD6fi4x"
+uri = "file://attached_assets/generated_images/generated_image_6.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "4qawh4MmmqSYb6E5mOlxD"
+uri = "file://attached_assets/generated_images/generated_image_7.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "PnzIJQH4tQ9ZGT-_JSe4Z"
+uri = "file://attached_assets/generated_images/generated_image_8.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "dfI72OyG9GgL8jAeCANEU"
+uri = "file://attached_assets/generated_images/generated_image_9.png"
+type = "image"
+title = "generated_image"
