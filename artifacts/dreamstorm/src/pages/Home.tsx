@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { Header } from "@/components/storefront/Header";
 import { Hero } from "@/components/storefront/Hero";
+import { DesignMarquee } from "@/components/storefront/DesignMarquee";
 import { CategoryTiles } from "@/components/storefront/CategoryTiles";
 import { BestSellers } from "@/components/storefront/BestSellers";
 import { ProductGrid } from "@/components/storefront/ProductGrid";
 import { HowItWorks } from "@/components/storefront/HowItWorks";
+import { CustomDesign } from "@/components/storefront/CustomDesign";
 import { Benefits } from "@/components/storefront/Benefits";
 import { Footer } from "@/components/storefront/Footer";
 import { CartSheet } from "@/components/storefront/CartSheet";
@@ -21,6 +23,7 @@ export default function Home() {
     <main className="min-h-screen bg-background flex flex-col font-sans">
       <Header />
       <Hero />
+      <DesignMarquee products={products} />
       <CategoryTiles onSelectCategory={setSelectedCategory} />
       <BestSellers products={products} />
       <ProductGrid
@@ -30,6 +33,7 @@ export default function Home() {
         onCategorySelect={setSelectedCategory}
       />
       <HowItWorks />
+      <CustomDesign />
       <Benefits />
       <Footer />
 

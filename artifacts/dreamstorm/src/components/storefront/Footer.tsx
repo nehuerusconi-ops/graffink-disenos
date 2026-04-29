@@ -30,7 +30,7 @@ export function Footer() {
           
           <div className="col-span-1 lg:col-span-2">
             <div className="text-3xl font-black tracking-tighter text-white uppercase flex items-center gap-2 mb-6">
-              <span className="text-primary">D</span>reamstorm
+              <span className="text-primary">DTF</span>&nbsp;LAB
             </div>
             <p className="text-white/60 text-lg max-w-sm mb-8 font-medium">
               Diseños DTF profesionales para marcas que quieren destacar. Archivos listos para imprimir, sin vueltas.
@@ -55,6 +55,7 @@ export function Footer() {
               <li><button onClick={() => scrollTo("categories")} className="text-white/60 hover:text-primary transition-colors font-medium">Categorías</button></li>
               <li><button onClick={() => scrollTo("products")} className="text-white/60 hover:text-primary transition-colors font-medium">Diseños</button></li>
               <li><button onClick={() => scrollTo("bestsellers")} className="text-white/60 hover:text-primary transition-colors font-medium">Más vendidos</button></li>
+              <li><button onClick={() => scrollTo("personalizado")} className="text-white/60 hover:text-primary transition-colors font-medium">Diseño personalizado</button></li>
             </ul>
           </div>
 
@@ -78,7 +79,7 @@ export function Footer() {
 
         <div className="pt-8 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-white/40 text-sm font-medium">
-            © 2026 Dreamstorm. Todos los derechos reservados.
+            © 2026 DTF LAB. Todos los derechos reservados.
           </p>
           <div className="flex gap-6 text-sm font-medium text-white/40">
             <a href="#" className="hover:text-white transition-colors">Términos y condiciones</a>

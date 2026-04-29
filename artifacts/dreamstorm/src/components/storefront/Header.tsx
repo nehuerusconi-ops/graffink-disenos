@@ -41,6 +41,7 @@ export function Header() {
     { name: "Categorías", id: "categories" },
     { name: "Diseños", id: "products" },
     { name: "Más vendidos", id: "bestsellers" },
+    { name: "Personalizado", id: "personalizado" },
     { name: "Contacto", id: "footer" }
   ];
 
@@ -57,7 +58,7 @@ export function Header() {
           onClick={() => scrollTo("hero")}
           className="text-2xl font-black tracking-tighter text-white uppercase flex items-center gap-2"
         >
-          <span className="text-primary">D</span>reamstorm
+          <span className="text-primary">DTF</span>&nbsp;LAB
         </button>
 
         {/* Desktop Nav */}
