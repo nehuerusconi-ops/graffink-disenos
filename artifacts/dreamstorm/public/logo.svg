@@ -1,7 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" fill="none">
-  <rect x="8" y="10" width="10" height="40" rx="2" fill="#3b82f6"/>
-  <rect x="8" y="10" width="32" height="10" rx="2" fill="#3b82f6"/>
-  <rect x="8" y="40" width="32" height="10" rx="2" fill="#3b82f6"/>
-  <rect x="30" y="10" width="10" height="40" rx="2" fill="#3b82f6"/>
-  <text x="52" y="43" font-family="Inter, sans-serif" font-weight="900" font-size="30" fill="#ffffff" letter-spacing="-1">TF LAB</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 60" fill="none">
+  <!-- D letter mark -->
+  <rect x="6" y="8" width="9" height="44" rx="2" fill="#3b82f6"/>
+  <rect x="6" y="8" width="28" height="9" rx="2" fill="#3b82f6"/>
+  <rect x="6" y="43" width="28" height="9" rx="2" fill="#3b82f6"/>
+  <rect x="25" y="17" width="9" height="26" rx="2" fill="#3b82f6"/>
+  <!-- TF text -->
+  <text x="44" y="46" font-family="Inter, system-ui, sans-serif" font-weight="900" font-size="34" fill="#ffffff" letter-spacing="-1">TF</text>
+  <!-- LAB badge -->
+  <rect x="118" y="10" width="54" height="24" rx="4" fill="#3b82f6"/>
+  <text x="145" y="27" font-family="Inter, system-ui, sans-serif" font-weight="900" font-size="14" fill="#ffffff" letter-spacing="2" text-anchor="middle">LAB</text>
+  <!-- tagline -->
+  <text x="118" y="52" font-family="Inter, system-ui, sans-serif" font-weight="500" font-size="11" fill="#ffffff" opacity="0.5" letter-spacing="3">DISEÑOS DTF</text>
 </svg>

@@ -26,6 +26,7 @@ export const ordersTable = pgTable("orders", {
   status: text("status", { enum: ["pending", "paid", "failed", "refunded"] })
     .notNull()
     .default("paid"),
+  externalPaymentId: varchar("external_payment_id", { length: 255 }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
