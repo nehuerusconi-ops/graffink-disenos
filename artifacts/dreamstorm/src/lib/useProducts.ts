@@ -9,6 +9,7 @@ function toClientProduct(p: ApiProduct): Product {
     category: p.category as Product["category"],
     price: p.price,
     image: p.imagePath,
+    filePath: p.filePath,
     isBestSeller: p.isBestSeller,
   };
 }

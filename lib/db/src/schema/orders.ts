@@ -9,6 +9,7 @@ export interface OrderItem {
   price: number;
   quantity: number;
   imagePath: string;
+  filePath?: string | null;
 }
 
 export const ordersTable = pgTable("orders", {

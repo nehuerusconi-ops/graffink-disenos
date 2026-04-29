@@ -20,17 +20,23 @@ function createTransporter() {
 function buildDownloadLinks(items: Order["items"]): string {
   return items
     .map(
-      (item) => `
+      (item) => {
+        // Use filePath (the actual high-res design file) when available; fall back to imagePath (preview).
+        // filePath is the product's downloadable DTF file stored in object storage.
+        const downloadPath = item.filePath ?? item.imagePath;
+        const downloadUrl = `https://${DOMAIN}/api/storage${downloadPath}`;
+        return `
       <tr>
         <td style="padding:10px 16px; border-bottom:1px solid #222; color:#fff; font-size:14px;">${item.name}</td>
         <td style="padding:10px 16px; border-bottom:1px solid #222; color:#aaa; font-size:14px; text-align:center;">${item.quantity}</td>
         <td style="padding:10px 16px; border-bottom:1px solid #222; text-align:right;">
-          <a href="https://${DOMAIN}/api/storage${item.imagePath}"
+          <a href="${downloadUrl}"
              style="display:inline-block; background:#3b82f6; color:#fff; font-weight:700; padding:6px 14px; border-radius:4px; text-decoration:none; font-size:13px;">
             Descargar PNG
           </a>
         </td>
-      </tr>`,
+      </tr>`;
+      },
     )
     .join("");
 }

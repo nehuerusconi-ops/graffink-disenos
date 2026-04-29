@@ -59,6 +59,7 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
             price: it.price,
             quantity: it.quantity,
             imagePath: it.image,
+            filePath: it.filePath ?? null,
           })),
         }),
       });
@@ -88,6 +89,7 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           price: it.price,
           quantity: it.quantity,
           imagePath: it.image,
+          filePath: it.filePath ?? null,
         })),
       }),
     });

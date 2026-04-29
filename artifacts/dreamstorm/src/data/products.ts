@@ -6,6 +6,7 @@ export interface Product {
   category: Category;
   price: number;
   image: string;
+  filePath?: string | null;
   isBestSeller?: boolean;
 }
 

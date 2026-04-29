@@ -56,9 +56,10 @@ export function Header() {
       <div className="container mx-auto px-4 md:px-6 flex items-center justify-between">
         <button
           onClick={() => scrollTo("hero")}
-          className="text-2xl font-black tracking-tighter text-white uppercase flex items-center gap-2"
+          className="flex items-center"
+          aria-label="DTF LAB - Inicio"
         >
-          <span className="text-primary">DTF</span>&nbsp;LAB
+          <img src="/logo.svg" alt="DTF LAB" className="h-9 w-auto" />
         </button>
 
         {/* Desktop Nav */}

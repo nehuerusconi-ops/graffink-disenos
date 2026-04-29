@@ -4,6 +4,7 @@ import { db, ordersTable } from "@workspace/db";
 import type { OrderItem } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { sendOrderConfirmationEmail } from "../lib/email";
+import { logger } from "../lib/logger";
 import { z } from "zod";
 
 const router: IRouter = Router();
@@ -20,20 +21,19 @@ const mpClient = new MercadoPagoConfig({ accessToken: MP_ACCESS_TOKEN });
 // Mercado Pago — create preference
 // ---------------------------------------------------------------------------
 
+const OrderItemSchema = z.object({
+  productId: z.string(),
+  name: z.string(),
+  price: z.number().int().positive(),
+  quantity: z.number().int().positive(),
+  imagePath: z.string(),
+  filePath: z.string().nullable().optional(),
+});
+
 const MpPreferenceBody = z.object({
   customerName: z.string().min(1),
   customerEmail: z.string().email(),
-  items: z
-    .array(
-      z.object({
-        productId: z.string(),
-        name: z.string(),
-        price: z.number().int().positive(),
-        quantity: z.number().int().positive(),
-        imagePath: z.string(),
-      }),
-    )
-    .min(1),
+  items: z.array(OrderItemSchema).min(1),
 });
 
 router.post("/payments/mercadopago/preference", async (req, res): Promise<void> => {
@@ -124,7 +124,7 @@ router.post("/webhooks/mercadopago", async (req, res): Promise<void> => {
 
     const [updated] = await db
       .update(ordersTable)
-      .set({ status: "paid" })
+      .set({ status: "paid", externalPaymentId: String(paymentId) })
       .where(eq(ordersTable.id, orderId))
       .returning();
 
@@ -132,7 +132,7 @@ router.post("/webhooks/mercadopago", async (req, res): Promise<void> => {
       await sendOrderConfirmationEmail(updated);
     }
   } catch (err) {
-    console.error("MP webhook error", err);
+    logger.error({ err }, "MP webhook processing error");
   }
 });
 
@@ -143,17 +143,7 @@ router.post("/webhooks/mercadopago", async (req, res): Promise<void> => {
 const PaypalOrderBody = z.object({
   customerName: z.string().min(1),
   customerEmail: z.string().email(),
-  items: z
-    .array(
-      z.object({
-        productId: z.string(),
-        name: z.string(),
-        price: z.number().int().positive(),
-        quantity: z.number().int().positive(),
-        imagePath: z.string(),
-      }),
-    )
-    .min(1),
+  items: z.array(OrderItemSchema).min(1),
 });
 
 async function getPaypalAccessToken(): Promise<string> {
@@ -227,6 +217,13 @@ router.post("/payments/paypal/create-order", async (req, res): Promise<void> => 
     });
 
     const ppOrder = (await ppResp.json()) as { id: string };
+
+    // Persist the PayPal order ID as externalPaymentId for traceability
+    await db
+      .update(ordersTable)
+      .set({ externalPaymentId: ppOrder.id })
+      .where(eq(ordersTable.id, order.id));
+
     res.json({ ppOrderId: ppOrder.id, orderId: order.id });
   } catch (err) {
     req.log.error({ err }, "Failed to create PayPal order");
@@ -246,6 +243,26 @@ router.post("/payments/paypal/capture-order", async (req, res): Promise<void> =>
   }
 
   try {
+    // First verify the DB order exists and has the expected externalPaymentId (binding check)
+    const [dbOrder] = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId));
+
+    if (!dbOrder) {
+      res.status(404).json({ error: "Pedido no encontrado" });
+      return;
+    }
+    if (dbOrder.externalPaymentId !== ppOrderId) {
+      req.log.warn({ orderId, ppOrderId, stored: dbOrder.externalPaymentId }, "PayPal order ID mismatch");
+      res.status(400).json({ error: "El pedido de PayPal no corresponde a esta orden" });
+      return;
+    }
+    if (dbOrder.status === "paid") {
+      res.json(dbOrder);
+      return;
+    }
+
     const token = await getPaypalAccessToken();
     const base = paypalBase();
 
@@ -254,10 +271,22 @@ router.post("/payments/paypal/capture-order", async (req, res): Promise<void> =>
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     });
 
-    const capture = (await captureResp.json()) as { status: string };
+    type CaptureResult = {
+      status: string;
+      purchase_units?: Array<{ reference_id?: string }>;
+    };
+    const capture = (await captureResp.json()) as CaptureResult;
 
     if (capture.status !== "COMPLETED") {
       res.status(400).json({ error: `Pago no completado: ${capture.status}` });
+      return;
+    }
+
+    // Verify the captured order's reference_id matches our DB order ID
+    const capturedRef = capture.purchase_units?.[0]?.reference_id;
+    if (capturedRef && capturedRef !== orderId) {
+      req.log.warn({ orderId, capturedRef }, "PayPal reference_id mismatch on capture");
+      res.status(400).json({ error: "El pago capturado no corresponde a esta orden" });
       return;
     }
 

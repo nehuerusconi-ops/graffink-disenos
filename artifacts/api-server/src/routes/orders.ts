@@ -7,7 +7,11 @@ import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
-router.post("/orders", async (req, res): Promise<void> => {
+// POST /orders is now reserved for internal/admin use only (requires auth).
+// All real customer orders are created via /payments/mercadopago/preference
+// or /payments/paypal/create-order and are confirmed by the gateway before
+// being marked as paid. This prevents bypassing payment confirmation.
+router.post("/orders", requireAuth, async (req, res): Promise<void> => {
   const parsed = CreateOrderBody.safeParse(req.body);
   if (!parsed.success) {
     req.log.warn({ errors: parsed.error.message }, "Invalid order body");
