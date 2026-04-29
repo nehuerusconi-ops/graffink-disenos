@@ -58,15 +58,14 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           customerEmail: customerEmail.trim(),
           items: items.map((it) => ({
             productId: it.id,
-            name: it.name,
-            price: it.price,
             quantity: it.quantity,
-            imagePath: it.image,
-            filePath: it.filePath ?? null,
           })),
         }),
       });
-      if (!resp.ok) throw new Error("No se pudo crear la preferencia");
+      if (!resp.ok) {
+        const err = (await resp.json().catch(() => ({}))) as { error?: string };
+        throw new Error(err.error ?? "No se pudo crear la preferencia");
+      }
       const data = (await resp.json()) as { init_point: string; sandbox_init_point: string };
       const url = import.meta.env.PROD ? data.init_point : (data.sandbox_init_point ?? data.init_point);
       onOpenChange(false);
@@ -87,15 +86,14 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
         customerEmail: customerEmail.trim(),
         items: items.map((it) => ({
           productId: it.id,
-          name: it.name,
-          price: it.price,
           quantity: it.quantity,
-          imagePath: it.image,
-          filePath: it.filePath ?? null,
         })),
       }),
     });
-    if (!resp.ok) throw new Error("No se pudo crear el pedido");
+    if (!resp.ok) {
+      const errBody = (await resp.json().catch(() => ({}))) as { error?: string };
+      throw new Error(errBody.error ?? "No se pudo crear el pedido");
+    }
     const data = (await resp.json()) as { ppOrderId: string; orderId: string };
     // Store orderId in ref immediately (synchronous) so the onApprove closure always has it
     dbOrderIdRef.current = data.orderId;

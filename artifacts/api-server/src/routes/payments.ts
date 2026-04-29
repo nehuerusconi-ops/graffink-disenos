@@ -1,8 +1,8 @@
 import { Router, type IRouter } from "express";
 import { MercadoPagoConfig, Preference, Payment } from "mercadopago";
-import { db, ordersTable } from "@workspace/db";
+import { db, ordersTable, productsTable } from "@workspace/db";
 import type { OrderItem } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { sendOrderConfirmationEmail } from "../lib/email";
 import { logger } from "../lib/logger";
 import { z } from "zod";
@@ -24,42 +24,79 @@ const PAYPAL_ARS_USD_RATE: number | null = _rawRate ? Number(_rawRate) : null;
 const mpClient = new MercadoPagoConfig({ accessToken: MP_ACCESS_TOKEN });
 
 // ---------------------------------------------------------------------------
+// Shared: cart input schema (only productId + quantity from client)
+// ---------------------------------------------------------------------------
+
+const CartItemSchema = z.object({
+  productId: z.string().min(1),
+  quantity: z.number().int().min(1).max(50),
+});
+
+const CustomerInfoSchema = z.object({
+  customerName: z.string().min(1),
+  customerEmail: z.string().email(),
+  items: z.array(CartItemSchema).min(1).max(50),
+});
+
+// Resolve cart items from DB, returning authoritative products with server-side prices.
+// Rejects unknown productIds and unpublished products.
+async function resolveCartItems(
+  cartItems: z.infer<typeof CartItemSchema>[],
+): Promise<{ orderItems: OrderItem[]; total: number } | { error: string }> {
+  const ids = cartItems.map((c) => c.productId);
+  const products = await db
+    .select()
+    .from(productsTable)
+    .where(inArray(productsTable.id, ids));
+
+  const productMap = new Map(products.map((p) => [p.id, p]));
+
+  const orderItems: OrderItem[] = [];
+  for (const cartItem of cartItems) {
+    const product = productMap.get(cartItem.productId);
+    if (!product) return { error: `Producto no encontrado: ${cartItem.productId}` };
+    if (!product.isPublished) return { error: `Producto no disponible: ${product.name}` };
+    orderItems.push({
+      productId: product.id,
+      name: product.name,
+      price: product.price,
+      quantity: cartItem.quantity,
+      imagePath: product.imagePath,
+      filePath: product.filePath ?? null,
+    });
+  }
+
+  const total = orderItems.reduce((s, i) => s + i.price * i.quantity, 0);
+  return { orderItems, total };
+}
+
+// ---------------------------------------------------------------------------
 // Mercado Pago — create preference
 // ---------------------------------------------------------------------------
 
-const OrderItemSchema = z.object({
-  productId: z.string(),
-  name: z.string(),
-  price: z.number().int().positive(),
-  quantity: z.number().int().positive(),
-  imagePath: z.string(),
-  filePath: z.string().nullable().optional(),
-});
-
-const MpPreferenceBody = z.object({
-  customerName: z.string().min(1),
-  customerEmail: z.string().email(),
-  items: z.array(OrderItemSchema).min(1),
-});
-
 router.post("/payments/mercadopago/preference", async (req, res): Promise<void> => {
-  const parsed = MpPreferenceBody.safeParse(req.body);
+  const parsed = CustomerInfoSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { customerName, customerEmail, items } = parsed.data;
-  type ParsedItem = (typeof parsed.data.items)[number];
-  const total = items.reduce((s: number, i: ParsedItem) => s + i.price * i.quantity, 0);
+  const { customerName, customerEmail, items: cartItems } = parsed.data;
 
   try {
+    const resolved = await resolveCartItems(cartItems);
+    if ("error" in resolved) {
+      res.status(422).json({ error: resolved.error });
+      return;
+    }
+    const { orderItems, total } = resolved;
+
     // Create a pending order first to store orderId in MP external_reference
     const [order] = await db
       .insert(ordersTable)
       .values({
         customerName: customerName.trim(),
         customerEmail: customerEmail.trim().toLowerCase(),
-        items: items as OrderItem[],
+        items: orderItems,
         total,
         paymentMethod: "mercadopago",
         status: "pending",
@@ -71,7 +108,7 @@ router.post("/payments/mercadopago/preference", async (req, res): Promise<void> 
       body: {
         external_reference: order.id,
         payer: { name: customerName, email: customerEmail },
-        items: items.map((it: ParsedItem) => ({
+        items: orderItems.map((it) => ({
           id: it.productId,
           title: it.name,
           quantity: it.quantity,
@@ -128,6 +165,17 @@ router.post("/webhooks/mercadopago", async (req, res): Promise<void> => {
 
     if (!existing || existing.status === "paid") return;
 
+    // Verify the gateway-reported amount matches the stored order total (fraud protection)
+    const paidAmount = paymentData.transaction_amount ?? 0;
+    const expectedAmount = existing.total;
+    if (Math.abs(paidAmount - expectedAmount) > 1) {
+      logger.error(
+        { orderId, paidAmount, expectedAmount },
+        "MP webhook: amount mismatch — order NOT marked paid",
+      );
+      return;
+    }
+
     const [updated] = await db
       .update(ordersTable)
       .set({ status: "paid", externalPaymentId: String(paymentId) })
@@ -146,11 +194,6 @@ router.post("/webhooks/mercadopago", async (req, res): Promise<void> => {
 // PayPal — create order
 // ---------------------------------------------------------------------------
 
-const PaypalOrderBody = z.object({
-  customerName: z.string().min(1),
-  customerEmail: z.string().email(),
-  items: z.array(OrderItemSchema).min(1),
-});
 
 function paypalBase(): string {
   const isSandbox =
@@ -176,32 +219,37 @@ async function getPaypalAccessToken(): Promise<string> {
 }
 
 router.post("/payments/paypal/create-order", async (req, res): Promise<void> => {
-  const parsed = PaypalOrderBody.safeParse(req.body);
+  const parsed = CustomerInfoSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { customerName, customerEmail, items } = parsed.data;
-  type PPItem = (typeof parsed.data.items)[number];
-  const total = items.reduce((s: number, i: PPItem) => s + i.price * i.quantity, 0);
+  const { customerName, customerEmail, items: cartItems } = parsed.data;
+
+  if (!PAYPAL_ARS_USD_RATE || PAYPAL_ARS_USD_RATE <= 0) {
+    res.status(503).json({ error: "Tipo de cambio ARS/USD no configurado. Contacte al administrador." });
+    return;
+  }
 
   try {
+    const resolved = await resolveCartItems(cartItems);
+    if ("error" in resolved) {
+      res.status(422).json({ error: resolved.error });
+      return;
+    }
+    const { orderItems, total } = resolved;
+
     const [order] = await db
       .insert(ordersTable)
       .values({
         customerName: customerName.trim(),
         customerEmail: customerEmail.trim().toLowerCase(),
-        items: items as OrderItem[],
+        items: orderItems,
         total,
         paymentMethod: "paypal",
         status: "pending",
       })
       .returning();
-
-    if (!PAYPAL_ARS_USD_RATE || PAYPAL_ARS_USD_RATE <= 0) {
-      res.status(503).json({ error: "Tipo de cambio ARS/USD no configurado. Contacte al administrador." });
-      return;
-    }
 
     const token = await getPaypalAccessToken();
     const base = paypalBase();
@@ -220,7 +268,7 @@ router.post("/payments/paypal/create-order", async (req, res): Promise<void> => 
         purchase_units: [
           {
             reference_id: order.id,
-            description: `DTF LAB — ${items.length} diseño${items.length > 1 ? "s" : ""}`,
+            description: `DTF LAB — ${orderItems.length} diseño${orderItems.length > 1 ? "s" : ""}`,
             amount: {
               currency_code: "USD",
               value: usdAmount,
@@ -291,9 +339,15 @@ router.post("/payments/paypal/capture-order", async (req, res): Promise<void> =>
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     });
 
+    type CaptureUnit = {
+      reference_id?: string;
+      payments?: {
+        captures?: Array<{ amount?: { value?: string; currency_code?: string } }>;
+      };
+    };
     type CaptureResult = {
       status: string;
-      purchase_units?: Array<{ reference_id?: string }>;
+      purchase_units?: CaptureUnit[];
     };
     const capture = (await captureResp.json()) as CaptureResult;
 
@@ -303,11 +357,24 @@ router.post("/payments/paypal/capture-order", async (req, res): Promise<void> =>
     }
 
     // Verify the captured order's reference_id matches our DB order ID
-    const capturedRef = capture.purchase_units?.[0]?.reference_id;
+    const capturedUnit = capture.purchase_units?.[0];
+    const capturedRef = capturedUnit?.reference_id;
     if (capturedRef && capturedRef !== orderId) {
       req.log.warn({ orderId, capturedRef }, "PayPal reference_id mismatch on capture");
       res.status(400).json({ error: "El pago capturado no corresponde a esta orden" });
       return;
+    }
+
+    // Verify captured amount against stored order total (fraud protection)
+    if (PAYPAL_ARS_USD_RATE) {
+      const capturedUsd = parseFloat(capturedUnit?.payments?.captures?.[0]?.amount?.value ?? "0");
+      const expectedUsd = dbOrder.total / PAYPAL_ARS_USD_RATE;
+      // Allow 1 USD tolerance for rounding
+      if (capturedUsd > 0 && Math.abs(capturedUsd - expectedUsd) > 1) {
+        req.log.error({ orderId, capturedUsd, expectedUsd }, "PayPal amount mismatch — NOT marking paid");
+        res.status(400).json({ error: "El monto capturado no coincide con el total de la orden" });
+        return;
+      }
     }
 
     const [updated] = await db
