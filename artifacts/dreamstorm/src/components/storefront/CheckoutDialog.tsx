@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,14 +24,16 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [confirmed, setConfirmed] = useState<ConfirmedInfo | null>(null);
-  const [dbOrderId, setDbOrderId] = useState<string | null>(null);
+  // Use a ref to store the dbOrderId synchronously — avoids async state update issues
+  // where onPaypalApprove closure could capture a stale null before setState flushes.
+  const dbOrderIdRef = useRef<string | null>(null);
   const { items, totalPrice, clearCart } = useCart();
 
   useEffect(() => {
     if (open) {
       setStep("details");
       setConfirmed(null);
-      setDbOrderId(null);
+      dbOrderIdRef.current = null;
     }
   }, [open]);
 
@@ -95,17 +97,24 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
     });
     if (!resp.ok) throw new Error("No se pudo crear el pedido");
     const data = (await resp.json()) as { ppOrderId: string; orderId: string };
-    setDbOrderId(data.orderId);
+    // Store orderId in ref immediately (synchronous) so the onApprove closure always has it
+    dbOrderIdRef.current = data.orderId;
     return data.ppOrderId;
   };
 
   const onPaypalApprove = async (data: { orderID: string }) => {
     setStep("processing");
+    const captureOrderId = dbOrderIdRef.current;
+    if (!captureOrderId) {
+      toast.error("Error interno: no se pudo identificar la orden. Contactá al soporte.");
+      setStep("payment");
+      return;
+    }
     try {
       const resp = await fetch(`${BASE}/api/payments/paypal/capture-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ppOrderId: data.orderID, orderId: dbOrderId }),
+        body: JSON.stringify({ ppOrderId: data.orderID, orderId: captureOrderId }),
       });
       if (!resp.ok) throw new Error("Error al capturar el pago");
       const order = (await resp.json()) as { invoiceNumber: number; customerEmail: string };

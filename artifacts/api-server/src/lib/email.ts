@@ -72,8 +72,7 @@ export async function sendOrderConfirmationEmail(order: Order): Promise<void> {
             <table width="100%" cellpadding="0" cellspacing="0">
               <tr>
                 <td>
-                  <span style="font-size:28px; font-weight:900; color:#fff; letter-spacing:-1px;">DTF <span style="background:#3b82f6; color:#fff; padding:2px 10px; border-radius:4px; font-size:16px; letter-spacing:2px; vertical-align:middle; margin-left:4px;">LAB</span></span>
-                  <div style="font-size:11px; color:#666; letter-spacing:3px; margin-top:4px; text-transform:uppercase;">Diseños DTF</div>
+                  <img src="https://${DOMAIN}/logo.png" alt="DTF LAB" width="160" height="40" style="display:block; border:0;" />
                 </td>
                 <td align="right">
                   <div style="color:#3b82f6; font-size:13px; font-weight:700; letter-spacing:1px;">FACTURA N°</div>
