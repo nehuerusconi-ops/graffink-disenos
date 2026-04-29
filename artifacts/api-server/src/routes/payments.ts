@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { createHmac, timingSafeEqual } from "crypto";
 import { MercadoPagoConfig, Preference, Payment } from "mercadopago";
 import { db, ordersTable, productsTable } from "@workspace/db";
 import type { OrderItem } from "@workspace/db";
@@ -11,6 +12,7 @@ const router: IRouter = Router();
 
 const DOMAIN = (process.env["REPLIT_DOMAINS"] ?? "localhost:80").split(",")[0];
 const MP_ACCESS_TOKEN = process.env["MERCADOPAGO_ACCESS_TOKEN"] ?? "";
+const MP_WEBHOOK_SECRET = process.env["MERCADOPAGO_WEBHOOK_SECRET"] ?? "";
 const PAYPAL_CLIENT_ID = process.env["PAYPAL_CLIENT_ID"] ?? "";
 const PAYPAL_CLIENT_SECRET = process.env["PAYPAL_CLIENT_SECRET"] ?? "";
 const UALA_PAYMENT_LINK = process.env["UALA_PAYMENT_LINK"] ?? "";
@@ -164,14 +166,73 @@ router.post("/payments/mercadopago/preference", async (req, res): Promise<void> 
 });
 
 // ---------------------------------------------------------------------------
+// Mercado Pago — webhook signature validation
+// ---------------------------------------------------------------------------
+
+/**
+ * Validates the x-signature header sent by Mercado Pago on every webhook.
+ *
+ * MP format: x-signature: ts=<timestamp>,v1=<hmac-sha256>
+ * Manifest:  id:<data_id>;request-id:<x-request-id>;ts:<timestamp>
+ *
+ * Docs: https://www.mercadopago.com.ar/developers/es/docs/your-integrations/notifications/webhooks
+ */
+function validateMPSignature(
+  xSignature: string | undefined,
+  xRequestId: string | undefined,
+  dataId: string | undefined,
+  secret: string,
+): boolean {
+  if (!xSignature || !secret) return false;
+
+  // Parse "ts=<timestamp>,v1=<hash>" into a map
+  const parts: Record<string, string> = {};
+  for (const chunk of xSignature.split(",")) {
+    const eqIdx = chunk.indexOf("=");
+    if (eqIdx === -1) continue;
+    parts[chunk.slice(0, eqIdx).trim()] = chunk.slice(eqIdx + 1).trim();
+  }
+
+  const ts = parts["ts"];
+  const v1 = parts["v1"];
+  if (!ts || !v1) return false;
+
+  // Manifest string exactly as MP specifies — trailing semicolon is required
+  // Format: id:<data_id>;request-id:<x-request-id>;ts:<ts>;
+  const manifest = `id:${dataId ?? ""};request-id:${xRequestId ?? ""};ts:${ts};`;
+  const expected = createHmac("sha256", secret).update(manifest).digest("hex");
+
+  try {
+    return timingSafeEqual(Buffer.from(v1, "hex"), Buffer.from(expected, "hex"));
+  } catch {
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Mercado Pago — webhook
 // ---------------------------------------------------------------------------
 
 router.post("/webhooks/mercadopago", async (req, res): Promise<void> => {
-  res.sendStatus(200); // Acknowledge immediately
+  // --- Signature validation (must happen before any processing) ---
+  const xSigRaw = req.headers["x-signature"];
+  const xReqIdRaw = req.headers["x-request-id"];
+  const xSignature = Array.isArray(xSigRaw) ? xSigRaw[0] : xSigRaw;
+  const xRequestId = Array.isArray(xReqIdRaw) ? xReqIdRaw[0] : xReqIdRaw;
+  // MP may send the payment ID as ?data.id= (newer format) or ?id= (legacy), or in the JSON body
+  const dataId = (req.query["data.id"] ?? req.query["id"] ?? req.body?.data?.id) as string | undefined;
+
+  if (!validateMPSignature(xSignature, xRequestId, dataId, MP_WEBHOOK_SECRET)) {
+    logger.warn({ xSignature, xRequestId, dataId }, "MP webhook: invalid signature — rejected");
+    res.sendStatus(401);
+    return;
+  }
+
+  // Acknowledge immediately after signature is confirmed valid
+  res.sendStatus(200);
 
   const topic = req.query["topic"] ?? req.body?.type;
-  const paymentId = req.query["id"] ?? req.body?.data?.id;
+  const paymentId = dataId;
 
   if (topic !== "payment" && req.body?.type !== "payment") return;
   if (!paymentId) return;

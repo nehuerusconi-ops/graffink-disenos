@@ -39,4 +39,27 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - Orders: `orders` table has auto-incremented `invoice_number` (`serial`) for facturación, jsonb `items` snapshot, total in ARS pesos (integer), and `payment_method` enum (mercadopago | uala | paypal). Checkout collects customer name + email then POSTs to `/api/orders` (public). Admin "Ganancias" tab calls `/api/orders/stats` for KPIs + 30-day chart + top products + revenue-by-method. Admin "Facturación" tab lists orders with a printable invoice (opens a new window with print-styled HTML).
 - Admin tab components live in `artifacts/dreamstorm/src/pages/admin/{ProductsTab,SalesTab,InvoicesTab}.tsx`.
 
+## Mercado Pago Webhook Setup
+
+The API server validates every incoming MP webhook using HMAC-SHA256 before processing it.
+
+**Webhook URL to register in Mercado Pago panel:**
+```
+https://{REPLIT_DOMAIN}/api/webhooks/mercadopago
+```
+
+**Steps to register:**
+1. Log in to [mercadopago.com/developers](https://www.mercadopago.com/developers)
+2. Go to **Tu negocio → Notificaciones → Webhooks → Configurar notificaciones**
+3. Set the URL above and enable the **Pagos** event
+4. Copy the generated **Secreto de webhook** ("Ver secreto")
+5. Store it as the `MERCADOPAGO_WEBHOOK_SECRET` Replit secret
+
+**How the signature is verified:**
+- MP sends `x-signature: ts=<timestamp>,v1=<hmac-sha256>` and `x-request-id` on every webhook
+- Server builds manifest: `id:<data_id>;request-id:<x-request-id>;ts:<ts>;`
+- Computes `HMAC-SHA256(MERCADOPAGO_WEBHOOK_SECRET, manifest)` and compares using constant-time equality
+- Returns **401** and logs a warning if the signature is missing or invalid; nothing is processed
+- Returns **200** immediately after validation, then processes asynchronously
+
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
