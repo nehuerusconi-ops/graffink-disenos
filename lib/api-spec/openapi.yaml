@@ -16,6 +16,8 @@ tags:
     description: Object storage operations
   - name: orders
     description: Sales orders and invoicing
+  - name: payments
+    description: Payment gateway integrations (Mercado Pago, PayPal, Ualá Bis)
 paths:
   /healthz:
     get:
@@ -183,7 +185,13 @@ paths:
     post:
       operationId: createOrder
       tags: [orders]
-      summary: Create order (public, called from checkout)
+      summary: Create manual order (admin-only — requireAdmin)
+      description: >
+        Reserved for admin manual order entry. Real customer orders must go through
+        /payments/mercadopago/preference or /payments/paypal/create-order and are
+        confirmed by the gateway before being marked paid.
+      security:
+        - clerkAuth: []
       requestBody:
         required: true
         content:
@@ -199,6 +207,18 @@ paths:
                 $ref: "#/components/schemas/Order"
         "400":
           description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden — not in admin allowlist
           content:
             application/json:
               schema:
@@ -298,8 +318,189 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /payments/mercadopago/preference:
+    post:
+      operationId: createMercadoPagoPreference
+      tags: [payments]
+      summary: Create Mercado Pago Checkout Pro preference
+      description: >
+        Resolves product prices server-side from productId+quantity, creates a pending order,
+        and returns a Mercado Pago init_point URL. Cart only shows productId and quantity —
+        prices are never trusted from client input.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckoutInput"
+      responses:
+        "200":
+          description: Preference created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  init_point:
+                    type: string
+                  sandbox_init_point:
+                    type: string
+                  orderId:
+                    type: string
+                required: [init_point, orderId]
+        "422":
+          description: Unknown or unpublished product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Gateway error
+
+  /payments/paypal/create-order:
+    post:
+      operationId: createPaypalOrder
+      tags: [payments]
+      summary: Create PayPal order (inline SDK)
+      description: >
+        Resolves product prices server-side, creates a pending order, and returns a PayPal
+        order ID for use with the PayPal JS SDK buttons. Requires PAYPAL_ARS_USD_RATE env var.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckoutInput"
+      responses:
+        "200":
+          description: PayPal order created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ppOrderId:
+                    type: string
+                  orderId:
+                    type: string
+                required: [ppOrderId, orderId]
+        "503":
+          description: Exchange rate not configured
+
+  /payments/paypal/capture-order:
+    post:
+      operationId: capturePaypalOrder
+      tags: [payments]
+      summary: Capture PayPal order after buyer approval
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ppOrderId:
+                  type: string
+                orderId:
+                  type: string
+              required: [ppOrderId, orderId]
+      responses:
+        "200":
+          description: Order captured and marked paid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "400":
+          description: Mismatch or capture failure
+
+  /payments/uala/link:
+    post:
+      operationId: getUalaLink
+      tags: [payments]
+      summary: Get Ualá Bis payment link for manual payment
+      responses:
+        "200":
+          description: Ualá payment link
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                required: [url]
+        "503":
+          description: Ualá link not configured
+
+  /orders/{id}/invoice:
+    get:
+      operationId: getOrderInvoice
+      tags: [orders]
+      summary: Get invoice number for a confirmed order (public)
+      description: >
+        Returns only the invoiceNumber for a paid order. Safe to expose publicly —
+        orderId is a UUID from MP external_reference and no sensitive data is returned.
+        Used by checkout/success to show invoice number after MP redirect.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Invoice number
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invoiceNumber:
+                    type: integer
+                required: [invoiceNumber]
+        "404":
+          description: Order not found or not paid
+
+  /webhooks/mercadopago:
+    post:
+      operationId: mercadoPagoWebhook
+      tags: [payments]
+      summary: Mercado Pago IPN webhook (server-to-server)
+      description: >
+        Receives Mercado Pago payment notifications, re-validates payment status via MP API,
+        verifies amount against order total, and marks order as paid + triggers email delivery.
+      responses:
+        "200":
+          description: Acknowledged
+
 components:
   schemas:
+    CheckoutInput:
+      type: object
+      properties:
+        customerName:
+          type: string
+          minLength: 1
+        customerEmail:
+          type: string
+          format: email
+        items:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: object
+            properties:
+              productId:
+                type: string
+              quantity:
+                type: integer
+                minimum: 1
+                maximum: 50
+            required: [productId, quantity]
+      required: [customerName, customerEmail, items]
+
     HealthStatus:
       type: object
       properties:

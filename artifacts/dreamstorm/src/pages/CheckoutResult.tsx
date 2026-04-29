@@ -1,12 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useSearch, useLocation } from "wouter";
-import { CheckCircle2, Clock, XCircle, Mail, ArrowLeft } from "lucide-react";
+import { CheckCircle2, Clock, XCircle, Loader2, Mail, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Header } from "@/components/storefront/Header";
 import { Footer } from "@/components/storefront/Footer";
 import { useCart } from "@/components/storefront/CartContext";
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
+
+// Polling config: wait up to 30s for webhook to confirm payment
+const POLL_INTERVAL_MS = 2500;
+const POLL_MAX_ATTEMPTS = 12;
 
 type ResultType = "success" | "pending" | "failure";
 
@@ -16,40 +20,60 @@ export default function CheckoutResult({ type }: { type: ResultType }) {
   const { clearCart } = useCart();
   const [cleared, setCleared] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState<number | null>(null);
-  const [fetchingInvoice, setFetchingInvoice] = useState(false);
+  const [pollingState, setPollingState] = useState<"idle" | "polling" | "confirmed" | "timed-out">("idle");
+  const attemptsRef = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const params = new URLSearchParams(searchStr);
   const orderId = params.get("external_reference");
-  const paymentId = params.get("payment_id");
 
-  // On success: clear cart and fetch the invoice number using the orderId from MP
+  // Clear cart as soon as MP returns to success URL (cart will be confirmed by polling)
   useEffect(() => {
-    if (type === "success") {
-      if (!cleared) {
-        clearCart();
-        setCleared(true);
-      }
-      if (orderId && !invoiceNumber && !fetchingInvoice) {
-        setFetchingInvoice(true);
-        fetch(`${BASE}/api/orders/${orderId}/invoice`)
-          .then((r) => r.ok ? r.json() : null)
-          .then((data: { invoiceNumber?: number } | null) => {
-            if (data?.invoiceNumber) setInvoiceNumber(data.invoiceNumber);
-          })
-          .catch(() => null)
-          .finally(() => setFetchingInvoice(false));
-      }
+    if (type === "success" && !cleared) {
+      clearCart();
+      setCleared(true);
     }
-  }, [type, cleared, clearCart, orderId, invoiceNumber, fetchingInvoice]);
+  }, [type, cleared, clearCart]);
+
+  // For MP success: poll /orders/:id/invoice until webhook confirms payment
+  useEffect(() => {
+    if (type !== "success" || !orderId || pollingState !== "idle") return;
+
+    setPollingState("polling");
+    attemptsRef.current = 0;
+
+    const poll = () => {
+      attemptsRef.current += 1;
+      fetch(`${BASE}/api/orders/${orderId}/invoice`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data: { invoiceNumber?: number } | null) => {
+          if (data?.invoiceNumber) {
+            setInvoiceNumber(data.invoiceNumber);
+            setPollingState("confirmed");
+          } else if (attemptsRef.current < POLL_MAX_ATTEMPTS) {
+            timerRef.current = setTimeout(poll, POLL_INTERVAL_MS);
+          } else {
+            // Webhook may be delayed — show partial success without invoice number
+            setPollingState("timed-out");
+          }
+        })
+        .catch(() => {
+          if (attemptsRef.current < POLL_MAX_ATTEMPTS) {
+            timerRef.current = setTimeout(poll, POLL_INTERVAL_MS);
+          } else {
+            setPollingState("timed-out");
+          }
+        });
+    };
+
+    // Start polling after a short initial delay (webhook usually arrives within 2-5s)
+    timerRef.current = setTimeout(poll, 1500);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [type, orderId, pollingState]);
 
   const configs = {
-    success: {
-      icon: <CheckCircle2 className="w-16 h-16 text-green-400" />,
-      bg: "bg-green-500/10",
-      title: "¡Pago confirmado!",
-      description: "Tu compra fue procesada exitosamente. Te enviamos los links de descarga a tu email.",
-      sub: "Revisá tu bandeja de entrada (y spam por las dudas).",
-    },
     pending: {
       icon: <Clock className="w-16 h-16 text-yellow-400" />,
       bg: "bg-yellow-500/10",
@@ -66,8 +90,70 @@ export default function CheckoutResult({ type }: { type: ResultType }) {
     },
   };
 
-  const cfg = configs[type];
+  if (type === "success") {
+    const isPolling = pollingState === "polling";
+    const isConfirmed = pollingState === "confirmed";
+    const isTimedOut = pollingState === "timed-out";
 
+    return (
+      <main className="min-h-screen bg-background flex flex-col font-sans">
+        <Header />
+        <div className="flex-1 flex items-center justify-center px-4 py-20">
+          <div className="max-w-md w-full text-center">
+            {isPolling ? (
+              <>
+                <div className="w-28 h-28 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-8">
+                  <Loader2 className="w-16 h-16 text-primary animate-spin" />
+                </div>
+                <h1 className="text-3xl font-black uppercase tracking-tight text-white mb-3">Procesando pago…</h1>
+                <p className="text-white/60 font-medium">Estamos confirmando tu pago con Mercado Pago. Un momento.</p>
+              </>
+            ) : (
+              <>
+                <div className="w-28 h-28 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-8">
+                  <CheckCircle2 className="w-16 h-16 text-green-400" />
+                </div>
+                <h1 className="text-3xl font-black uppercase tracking-tight text-white mb-3">¡Pago confirmado!</h1>
+                <p className="text-white/70 font-medium mb-2">
+                  Tu compra fue procesada exitosamente.
+                </p>
+                {isConfirmed && invoiceNumber && (
+                  <p className="text-sm font-mono text-white/60 bg-white/5 border border-white/10 rounded-md px-4 py-2 inline-block mt-2 mb-4">
+                    Factura N° {String(invoiceNumber).padStart(6, "0")}
+                  </p>
+                )}
+                {isTimedOut && (
+                  <p className="text-xs text-white/40 mb-4">
+                    La confirmación puede tardar unos minutos más. Te avisamos por email.
+                  </p>
+                )}
+                <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 my-4 text-sm text-white/70 text-left">
+                  <Mail className="w-4 h-4 text-primary inline mr-2" />
+                  Los links de descarga de tus diseños fueron enviados a tu email.
+                </div>
+              </>
+            )}
+
+            {!isPolling && (
+              <div className="flex flex-col gap-3 mt-6">
+                <Button
+                  variant="ghost"
+                  className="w-full text-white/60 hover:text-white"
+                  onClick={() => navigate("/")}
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Volver al catálogo
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+        <Footer />
+      </main>
+    );
+  }
+
+  const cfg = configs[type];
   return (
     <main className="min-h-screen bg-background flex flex-col font-sans">
       <Header />
@@ -80,21 +166,7 @@ export default function CheckoutResult({ type }: { type: ResultType }) {
           <p className="text-white/70 font-medium mb-2">{cfg.description}</p>
           <p className="text-white/40 text-sm mb-2">{cfg.sub}</p>
 
-          {/* Invoice number — fetched server-side after MP redirect */}
-          {type === "success" && invoiceNumber && (
-            <p className="text-sm font-mono text-white/60 bg-white/5 border border-white/10 rounded-md px-4 py-2 inline-block mt-2 mb-4">
-              Factura N° {String(invoiceNumber).padStart(6, "0")}
-            </p>
-          )}
-
-          {type === "success" && (
-            <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 my-4 text-sm text-white/70 text-left">
-              <Mail className="w-4 h-4 text-primary inline mr-2" />
-              Los links de descarga de tus diseños fueron enviados a tu email.
-            </div>
-          )}
-
-          <div className="flex flex-col gap-3 mt-6">
+          <div className="flex flex-col gap-3 mt-8">
             {type === "failure" && (
               <Button
                 size="lg"
