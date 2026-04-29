@@ -20,8 +20,8 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 
 ## Artifacts
 
-- `artifacts/api-server` — Express API: products CRUD + storage signed URLs, gated by `requireAuth` middleware that uses Clerk session.
-- `artifacts/dreamstorm` — Vite React storefront in Argentine Spanish (voseo). Routes: `/` storefront, `/sign-in`, `/sign-up`, `/admin` (Clerk-protected admin panel for products).
+- `artifacts/api-server` — Express API: products CRUD, orders (POST public, GET/stats admin-only), and storage signed URLs. Admin endpoints gated by `requireAuth` middleware that uses Clerk session.
+- `artifacts/dreamstorm` — Vite React storefront in Argentine Spanish (voseo). Routes: `/` storefront, `/sign-in`, `/sign-up`, `/admin` (Clerk-protected admin panel with three tabs: Diseños / Ganancias / Facturación).
 
 ## Key Commands
 
@@ -36,5 +36,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - The Clerk frontend proxy at `/api/__clerk` is **production-only**; in development the React client must NOT pass `proxyUrl` (it talks to `*.clerk.accounts.dev` directly via the publishable key).
 - Storefront product data is fetched from `GET /api/products` via the generated `useListProducts` hook; the static `PRODUCTS` constant in `src/data/products.ts` is kept only for the `Product`/`Category` types.
 - Admin uploads call `POST /api/storage/uploads/request-url` (auth-gated) for a signed PUT URL, then upload directly to GCS. Returned `objectPath` (e.g. `/objects/uploads/xxxx`) is rendered through `/api/storage{objectPath}`.
+- Orders: `orders` table has auto-incremented `invoice_number` (`serial`) for facturación, jsonb `items` snapshot, total in ARS pesos (integer), and `payment_method` enum (mercadopago | uala | paypal). Checkout collects customer name + email then POSTs to `/api/orders` (public). Admin "Ganancias" tab calls `/api/orders/stats` for KPIs + 30-day chart + top products + revenue-by-method. Admin "Facturación" tab lists orders with a printable invoice (opens a new window with print-styled HTML).
+- Admin tab components live in `artifacts/dreamstorm/src/pages/admin/{ProductsTab,SalesTab,InvoicesTab}.tsx`.
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.

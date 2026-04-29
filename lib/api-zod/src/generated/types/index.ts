@@ -8,6 +8,16 @@
 
 export * from "./errorResponse";
 export * from "./healthStatus";
+export * from "./order";
+export * from "./orderInput";
+export * from "./orderInputPaymentMethod";
+export * from "./orderItem";
+export * from "./orderPaymentMethod";
+export * from "./orderStats";
+export * from "./orderStatsRevenueByDayItem";
+export * from "./orderStatsRevenueByMethodItem";
+export * from "./orderStatsTopProductsItem";
+export * from "./orderStatus";
 export * from "./product";
 export * from "./productInput";
 export * from "./productUpdate";

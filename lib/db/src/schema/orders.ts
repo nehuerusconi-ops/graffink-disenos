@@ -1,0 +1,40 @@
+import { pgTable, text, integer, timestamp, varchar, jsonb, serial } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod/v4";
+
+export interface OrderItem {
+  productId: string;
+  name: string;
+  price: number;
+  quantity: number;
+  imagePath: string;
+}
+
+export const ordersTable = pgTable("orders", {
+  id: varchar("id", { length: 36 })
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  invoiceNumber: serial("invoice_number").notNull(),
+  customerName: text("customer_name").notNull(),
+  customerEmail: text("customer_email").notNull(),
+  items: jsonb("items").$type<OrderItem[]>().notNull(),
+  total: integer("total").notNull(),
+  paymentMethod: text("payment_method", {
+    enum: ["mercadopago", "uala", "paypal"],
+  }).notNull(),
+  status: text("status", { enum: ["pending", "paid", "failed", "refunded"] })
+    .notNull()
+    .default("paid"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const insertOrderSchema = createInsertSchema(ordersTable).omit({
+  id: true,
+  invoiceNumber: true,
+  createdAt: true,
+});
+export type InsertOrder = z.infer<typeof insertOrderSchema>;
+export type Order = typeof ordersTable.$inferSelect;

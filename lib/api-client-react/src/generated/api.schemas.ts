@@ -52,6 +52,93 @@ export interface ProductUpdate {
   isPublished?: boolean;
 }
 
+export interface OrderItem {
+  productId: string;
+  name: string;
+  price: number;
+  quantity: number;
+  imagePath: string;
+}
+
+export type OrderPaymentMethod =
+  (typeof OrderPaymentMethod)[keyof typeof OrderPaymentMethod];
+
+export const OrderPaymentMethod = {
+  mercadopago: "mercadopago",
+  uala: "uala",
+  paypal: "paypal",
+} as const;
+
+export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
+
+export const OrderStatus = {
+  pending: "pending",
+  paid: "paid",
+  failed: "failed",
+  refunded: "refunded",
+} as const;
+
+export interface Order {
+  id: string;
+  invoiceNumber: number;
+  customerName: string;
+  customerEmail: string;
+  items: OrderItem[];
+  total: number;
+  paymentMethod: OrderPaymentMethod;
+  status: OrderStatus;
+  createdAt: string;
+}
+
+export type OrderInputPaymentMethod =
+  (typeof OrderInputPaymentMethod)[keyof typeof OrderInputPaymentMethod];
+
+export const OrderInputPaymentMethod = {
+  mercadopago: "mercadopago",
+  uala: "uala",
+  paypal: "paypal",
+} as const;
+
+export interface OrderInput {
+  /** @minLength 1 */
+  customerName: string;
+  customerEmail: string;
+  /** @minItems 1 */
+  items: OrderItem[];
+  paymentMethod: OrderInputPaymentMethod;
+}
+
+export type OrderStatsRevenueByDayItem = {
+  date: string;
+  revenue: number;
+  orders: number;
+};
+
+export type OrderStatsTopProductsItem = {
+  productId: string;
+  name: string;
+  quantity: number;
+  revenue: number;
+};
+
+export type OrderStatsRevenueByMethodItem = {
+  method: string;
+  revenue: number;
+  orders: number;
+};
+
+export interface OrderStats {
+  totalRevenue: number;
+  totalOrders: number;
+  revenueToday: number;
+  revenueThisWeek: number;
+  revenueThisMonth: number;
+  ordersToday: number;
+  revenueByDay: OrderStatsRevenueByDayItem[];
+  topProducts: OrderStatsTopProductsItem[];
+  revenueByMethod: OrderStatsRevenueByMethodItem[];
+}
+
 export type RequestUploadUrlBody = {
   name: string;
   size: number;

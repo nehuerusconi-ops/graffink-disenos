@@ -108,6 +108,112 @@ export const DeleteProductParams = zod.object({
 });
 
 /**
+ * @summary List orders (admin)
+ */
+export const ListOrdersResponseItem = zod.object({
+  id: zod.string(),
+  invoiceNumber: zod.number(),
+  customerName: zod.string(),
+  customerEmail: zod.string(),
+  items: zod.array(
+    zod.object({
+      productId: zod.string(),
+      name: zod.string(),
+      price: zod.number(),
+      quantity: zod.number(),
+      imagePath: zod.string(),
+    }),
+  ),
+  total: zod.number(),
+  paymentMethod: zod.enum(["mercadopago", "uala", "paypal"]),
+  status: zod.enum(["pending", "paid", "failed", "refunded"]),
+  createdAt: zod.coerce.date(),
+});
+export const ListOrdersResponse = zod.array(ListOrdersResponseItem);
+
+/**
+ * @summary Create order (public, called from checkout)
+ */
+
+export const CreateOrderBody = zod.object({
+  customerName: zod.string().min(1),
+  customerEmail: zod.string().email(),
+  items: zod
+    .array(
+      zod.object({
+        productId: zod.string(),
+        name: zod.string(),
+        price: zod.number(),
+        quantity: zod.number(),
+        imagePath: zod.string(),
+      }),
+    )
+    .min(1),
+  paymentMethod: zod.enum(["mercadopago", "uala", "paypal"]),
+});
+
+/**
+ * @summary Aggregate sales metrics (admin)
+ */
+export const GetOrderStatsResponse = zod.object({
+  totalRevenue: zod.number(),
+  totalOrders: zod.number(),
+  revenueToday: zod.number(),
+  revenueThisWeek: zod.number(),
+  revenueThisMonth: zod.number(),
+  ordersToday: zod.number(),
+  revenueByDay: zod.array(
+    zod.object({
+      date: zod.string(),
+      revenue: zod.number(),
+      orders: zod.number(),
+    }),
+  ),
+  topProducts: zod.array(
+    zod.object({
+      productId: zod.string(),
+      name: zod.string(),
+      quantity: zod.number(),
+      revenue: zod.number(),
+    }),
+  ),
+  revenueByMethod: zod.array(
+    zod.object({
+      method: zod.string(),
+      revenue: zod.number(),
+      orders: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get order detail (admin)
+ */
+export const GetOrderParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const GetOrderResponse = zod.object({
+  id: zod.string(),
+  invoiceNumber: zod.number(),
+  customerName: zod.string(),
+  customerEmail: zod.string(),
+  items: zod.array(
+    zod.object({
+      productId: zod.string(),
+      name: zod.string(),
+      price: zod.number(),
+      quantity: zod.number(),
+      imagePath: zod.string(),
+    }),
+  ),
+  total: zod.number(),
+  paymentMethod: zod.enum(["mercadopago", "uala", "paypal"]),
+  status: zod.enum(["pending", "paid", "failed", "refunded"]),
+  createdAt: zod.coerce.date(),
+});
+
+/**
  * @summary Request a presigned upload URL
  */
 export const RequestUploadUrlBody = zod.object({
