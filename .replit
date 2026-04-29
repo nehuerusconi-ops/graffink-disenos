@@ -35,6 +35,7 @@ externalPort = 80
 
 [userenv.shared]
 VITE_CLERK_PUBLISHABLE_KEY = "pk_test_ZXZvbHZlZC1jcm93LTYxLmNsZXJrLmFjY291bnRzLmRldiQ"
+PAYPAL_ARS_USD_RATE = "1200"
 
 [nix]
 channel = "stable-25_05"

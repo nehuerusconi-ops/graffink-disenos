@@ -15,6 +15,12 @@ const PAYPAL_CLIENT_ID = process.env["PAYPAL_CLIENT_ID"] ?? "";
 const PAYPAL_CLIENT_SECRET = process.env["PAYPAL_CLIENT_SECRET"] ?? "";
 const UALA_PAYMENT_LINK = process.env["UALA_PAYMENT_LINK"] ?? "";
 
+// ARS→USD conversion rate for PayPal (PayPal requires USD).
+// Set PAYPAL_ARS_USD_RATE env var to keep it up-to-date (e.g. 1200).
+// If not set, the server rejects PayPal orders rather than using a stale fallback.
+const _rawRate = process.env["PAYPAL_ARS_USD_RATE"];
+const PAYPAL_ARS_USD_RATE: number | null = _rawRate ? Number(_rawRate) : null;
+
 const mpClient = new MercadoPagoConfig({ accessToken: MP_ACCESS_TOKEN });
 
 // ---------------------------------------------------------------------------
@@ -146,24 +152,27 @@ const PaypalOrderBody = z.object({
   items: z.array(OrderItemSchema).min(1),
 });
 
+function paypalBase(): string {
+  const isSandbox =
+    PAYPAL_CLIENT_ID.startsWith("sb-") ||
+    PAYPAL_CLIENT_ID.includes("sandbox") ||
+    process.env["NODE_ENV"] !== "production";
+  return isSandbox ? "https://api-m.sandbox.paypal.com" : "https://api-m.paypal.com";
+}
+
 async function getPaypalAccessToken(): Promise<string> {
   const creds = Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString("base64");
-  const base = PAYPAL_CLIENT_ID.startsWith("sb-") || PAYPAL_CLIENT_ID.includes("sandbox")
-    ? "https://api-m.sandbox.paypal.com"
-    : "https://api-m.paypal.com";
+  const base = paypalBase();
   const resp = await fetch(`${base}/v1/oauth2/token`, {
     method: "POST",
     headers: { Authorization: `Basic ${creds}`, "Content-Type": "application/x-www-form-urlencoded" },
     body: "grant_type=client_credentials",
   });
   const data = (await resp.json()) as { access_token: string };
+  if (!data.access_token) {
+    throw new Error(`PayPal auth failed: ${JSON.stringify(data)}`);
+  }
   return data.access_token;
-}
-
-function paypalBase(): string {
-  return PAYPAL_CLIENT_ID.startsWith("sb-") || PAYPAL_CLIENT_ID.includes("sandbox") || process.env["NODE_ENV"] !== "production"
-    ? "https://api-m.sandbox.paypal.com"
-    : "https://api-m.paypal.com";
 }
 
 router.post("/payments/paypal/create-order", async (req, res): Promise<void> => {
@@ -189,11 +198,16 @@ router.post("/payments/paypal/create-order", async (req, res): Promise<void> => 
       })
       .returning();
 
+    if (!PAYPAL_ARS_USD_RATE || PAYPAL_ARS_USD_RATE <= 0) {
+      res.status(503).json({ error: "Tipo de cambio ARS/USD no configurado. Contacte al administrador." });
+      return;
+    }
+
     const token = await getPaypalAccessToken();
     const base = paypalBase();
 
-    // Convert ARS to USD (approximate, PayPal requires USD for sandbox)
-    const usdAmount = (total / 1200).toFixed(2);
+    // Convert ARS to USD using the configured exchange rate (PAYPAL_ARS_USD_RATE env var).
+    const usdAmount = (total / PAYPAL_ARS_USD_RATE).toFixed(2);
 
     const ppResp = await fetch(`${base}/v2/checkout/orders`, {
       method: "POST",
@@ -216,7 +230,13 @@ router.post("/payments/paypal/create-order", async (req, res): Promise<void> => 
       }),
     });
 
-    const ppOrder = (await ppResp.json()) as { id: string };
+    const ppOrder = (await ppResp.json()) as { id?: string; name?: string; message?: string };
+
+    if (!ppOrder.id) {
+      logger.error({ ppOrder }, "PayPal order creation failed — no order ID returned");
+      res.status(502).json({ error: "No se pudo crear la orden en PayPal. Intentá nuevamente." });
+      return;
+    }
 
     // Persist the PayPal order ID as externalPaymentId for traceability
     await db
