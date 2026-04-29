@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useCart } from "./CartContext";
 import { CheckCircle2, Loader2, ExternalLink, ArrowLeft, Mail } from "lucide-react";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
+import { MercadoPagoLogoWhite, UalaBisLogo, PaypalLogo } from "./PaymentLogos";
 import { toast } from "sonner";
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
@@ -66,7 +67,6 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
       if (!resp.ok) throw new Error("No se pudo crear la preferencia");
       const data = (await resp.json()) as { init_point: string; sandbox_init_point: string };
       const url = import.meta.env.PROD ? data.init_point : (data.sandbox_init_point ?? data.init_point);
-      clearCart();
       onOpenChange(false);
       window.location.href = url;
     } catch (err) {
@@ -185,15 +185,9 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                 onClick={handleMercadoPago}
                 className="w-full flex items-center p-4 bg-[#009EE3] rounded-lg hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[#009EE3]/30 transition-all duration-200"
               >
-                <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shrink-0 mr-4">
-                  <svg viewBox="0 0 40 40" className="w-9 h-9" aria-hidden="true">
-                    <circle cx="20" cy="20" r="20" fill="#009EE3" />
-                    <path d="M10 20.5C10 14.7 14.7 10 20.5 10C23.67 10 26.5 11.4 28.47 13.6L24.17 17.5C23.25 16.38 21.96 15.68 20.5 15.68C17.62 15.68 15.28 18.06 15.28 20.5C15.28 22.94 17.62 25.32 20.5 25.32C21.96 25.32 23.25 24.62 24.17 23.5L28.47 27.4C26.5 29.6 23.67 31 20.5 31C14.7 31 10 26.3 10 20.5Z" fill="white" />
-                  </svg>
-                </div>
-                <div className="text-left flex-1">
-                  <div className="font-black text-white text-lg leading-tight">Mercado Pago</div>
-                  <div className="text-white/80 text-sm font-medium">Tarjeta, débito o saldo MP</div>
+                <div className="flex-1 text-left">
+                  <MercadoPagoLogoWhite className="h-8 w-auto" />
+                  <div className="text-white/80 text-sm font-medium mt-1">Tarjeta, débito o saldo MP</div>
                 </div>
                 <ExternalLink className="w-4 h-4 text-white/60 ml-2 shrink-0" />
               </button>
@@ -203,15 +197,9 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                 onClick={() => setStep("uala-instructions")}
                 className="w-full flex items-center p-4 bg-gradient-to-r from-[#7C3AED] to-[#A855F7] rounded-lg hover:-translate-y-0.5 hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-200"
               >
-                <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shrink-0 mr-4">
-                  <svg viewBox="0 0 40 40" className="w-9 h-9" aria-hidden="true">
-                    <circle cx="20" cy="20" r="20" fill="#7C3AED" />
-                    <text x="20" y="26" fontFamily="Inter, sans-serif" fontWeight="900" fontSize="14" fill="white" textAnchor="middle">ualá</text>
-                  </svg>
-                </div>
-                <div className="text-left flex-1">
-                  <div className="font-black text-white text-lg leading-tight">Ualá Bis</div>
-                  <div className="text-white/80 text-sm font-medium">QR o link de pago Ualá</div>
+                <div className="flex-1 text-left">
+                  <UalaBisLogo className="h-8 w-auto" />
+                  <div className="text-white/80 text-sm font-medium mt-1">QR o link de pago Ualá</div>
                 </div>
               </button>
 
@@ -220,16 +208,9 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                 onClick={() => setStep("paypal-buttons")}
                 className="w-full flex items-center p-4 bg-[#003087] rounded-lg hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-900/40 transition-all duration-200"
               >
-                <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shrink-0 mr-4">
-                  <svg viewBox="0 0 40 40" className="w-9 h-9" aria-hidden="true">
-                    <circle cx="20" cy="20" r="20" fill="#003087" />
-                    <text x="8" y="25" fontFamily="Arial, sans-serif" fontWeight="900" fontSize="11" fill="#00AEEF">Pay</text>
-                    <text x="22" y="25" fontFamily="Arial, sans-serif" fontWeight="900" fontSize="11" fill="white">Pal</text>
-                  </svg>
-                </div>
-                <div className="text-left flex-1">
-                  <div className="font-black text-white text-lg leading-tight">PayPal</div>
-                  <div className="text-white/80 text-sm font-medium">Pagá en USD desde cualquier país</div>
+                <div className="flex-1 text-left">
+                  <PaypalLogo className="h-8 w-auto" />
+                  <div className="text-white/80 text-sm font-medium mt-1">Pagá en USD desde cualquier país</div>
                 </div>
               </button>
             </div>
@@ -308,7 +289,7 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                 className="w-full h-12 bg-gradient-to-r from-[#7C3AED] to-[#A855F7] text-white font-bold hover:opacity-90"
                 onClick={async () => {
                   try {
-                    const r = await fetch(`${BASE}/api/payments/uala/link`);
+                    const r = await fetch(`${BASE}/api/payments/uala/link`, { method: "POST" });
                     const d = (await r.json()) as { url?: string; error?: string };
                     if (d.url) window.open(d.url, "_blank");
                     else toast.error("Link de Ualá no disponible");

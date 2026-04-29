@@ -311,7 +311,7 @@ router.post("/payments/paypal/capture-order", async (req, res): Promise<void> =>
 // Ualá Bis — return payment link
 // ---------------------------------------------------------------------------
 
-router.get("/payments/uala/link", (_req, res): void => {
+router.post("/payments/uala/link", (_req, res): void => {
   if (!UALA_PAYMENT_LINK) {
     res.status(503).json({ error: "Link de Ualá no configurado" });
     return;

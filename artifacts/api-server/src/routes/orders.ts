@@ -174,4 +174,23 @@ router.get("/orders/:id", requireAuth, async (req, res): Promise<void> => {
   res.json(row);
 });
 
+// Public endpoint: returns only invoiceNumber for a confirmed order.
+// Safe to expose — orderId is a UUID from MP external_reference, no sensitive data returned.
+router.get("/orders/:id/invoice", async (req, res): Promise<void> => {
+  const params = GetOrderParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: "ID inválido" });
+    return;
+  }
+  const [row] = await db
+    .select({ invoiceNumber: ordersTable.invoiceNumber, status: ordersTable.status })
+    .from(ordersTable)
+    .where(eq(ordersTable.id, params.data.id));
+  if (!row || row.status !== "paid") {
+    res.status(404).json({ error: "Pedido no encontrado o pendiente" });
+    return;
+  }
+  res.json({ invoiceNumber: row.invoiceNumber });
+});
+
 export default router;

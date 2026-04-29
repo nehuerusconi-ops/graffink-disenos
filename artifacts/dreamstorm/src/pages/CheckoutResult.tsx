@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { useSearch, useLocation } from "wouter";
-import { CheckCircle2, Clock, XCircle, Download, ArrowLeft } from "lucide-react";
+import { CheckCircle2, Clock, XCircle, Mail, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Header } from "@/components/storefront/Header";
 import { Footer } from "@/components/storefront/Footer";
 import { useCart } from "@/components/storefront/CartContext";
+
+const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
 type ResultType = "success" | "pending" | "failure";
 
@@ -13,17 +15,32 @@ export default function CheckoutResult({ type }: { type: ResultType }) {
   const [, navigate] = useLocation();
   const { clearCart } = useCart();
   const [cleared, setCleared] = useState(false);
+  const [invoiceNumber, setInvoiceNumber] = useState<number | null>(null);
+  const [fetchingInvoice, setFetchingInvoice] = useState(false);
 
   const params = new URLSearchParams(searchStr);
-  const invoiceRef = params.get("external_reference");
+  const orderId = params.get("external_reference");
   const paymentId = params.get("payment_id");
 
+  // On success: clear cart and fetch the invoice number using the orderId from MP
   useEffect(() => {
-    if (type === "success" && !cleared) {
-      clearCart();
-      setCleared(true);
+    if (type === "success") {
+      if (!cleared) {
+        clearCart();
+        setCleared(true);
+      }
+      if (orderId && !invoiceNumber && !fetchingInvoice) {
+        setFetchingInvoice(true);
+        fetch(`${BASE}/api/orders/${orderId}/invoice`)
+          .then((r) => r.ok ? r.json() : null)
+          .then((data: { invoiceNumber?: number } | null) => {
+            if (data?.invoiceNumber) setInvoiceNumber(data.invoiceNumber);
+          })
+          .catch(() => null)
+          .finally(() => setFetchingInvoice(false));
+      }
     }
-  }, [type, cleared, clearCart]);
+  }, [type, cleared, clearCart, orderId, invoiceNumber, fetchingInvoice]);
 
   const configs = {
     success: {
@@ -62,19 +79,22 @@ export default function CheckoutResult({ type }: { type: ResultType }) {
           <h1 className="text-3xl font-black uppercase tracking-tight text-white mb-3">{cfg.title}</h1>
           <p className="text-white/70 font-medium mb-2">{cfg.description}</p>
           <p className="text-white/40 text-sm mb-2">{cfg.sub}</p>
-          {(invoiceRef || paymentId) && (
-            <p className="text-xs font-mono text-white/30 mb-8">
-              {invoiceRef && `Ref: ${invoiceRef}`}
-              {paymentId && ` · Pago: ${paymentId}`}
+
+          {/* Invoice number — fetched server-side after MP redirect */}
+          {type === "success" && invoiceNumber && (
+            <p className="text-sm font-mono text-white/60 bg-white/5 border border-white/10 rounded-md px-4 py-2 inline-block mt-2 mb-4">
+              Factura N° {String(invoiceNumber).padStart(6, "0")}
             </p>
           )}
-          <div className="flex flex-col gap-3 mt-8">
-            {type === "success" && (
-              <p className="text-sm text-white/50 bg-white/5 rounded-md p-3 border border-white/10">
-                <Download className="w-4 h-4 inline mr-2 text-primary" />
-                Los links de descarga de tus diseños fueron enviados a tu email.
-              </p>
-            )}
+
+          {type === "success" && (
+            <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 my-4 text-sm text-white/70 text-left">
+              <Mail className="w-4 h-4 text-primary inline mr-2" />
+              Los links de descarga de tus diseños fueron enviados a tu email.
+            </div>
+          )}
+
+          <div className="flex flex-col gap-3 mt-6">
             {type === "failure" && (
               <Button
                 size="lg"
