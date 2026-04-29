@@ -4,14 +4,15 @@ import { db, ordersTable } from "@workspace/db";
 import type { OrderItem } from "@workspace/db";
 import { CreateOrderBody, GetOrderParams } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
+import { requireAdmin } from "../middlewares/requireAdmin";
 
 const router: IRouter = Router();
 
-// POST /orders is now reserved for internal/admin use only (requires auth).
-// All real customer orders are created via /payments/mercadopago/preference
-// or /payments/paypal/create-order and are confirmed by the gateway before
-// being marked as paid. This prevents bypassing payment confirmation.
-router.post("/orders", requireAuth, async (req, res): Promise<void> => {
+// POST /orders is exclusively for admin manual order entry (requireAdmin checks
+// that the user is both authenticated AND in the ADMIN_USER_IDS allowlist).
+// Real customer orders go through /payments/* and are only marked "paid" after
+// gateway confirmation — preventing any payment bypass.
+router.post("/orders", requireAdmin, async (req, res): Promise<void> => {
   const parsed = CreateOrderBody.safeParse(req.body);
   if (!parsed.success) {
     req.log.warn({ errors: parsed.error.message }, "Invalid order body");
