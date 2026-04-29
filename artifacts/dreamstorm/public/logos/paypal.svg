@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 50" role="img" aria-label="PayPal">
+  <!-- Double-P icon mark -->
+  <rect x="0" y="5" width="40" height="40" rx="8" fill="#003087"/>
+  <!-- First P (offset, lighter blue) -->
+  <rect x="12" y="13" width="6" height="24" rx="3" fill="#009CDE"/>
+  <path d="M12 13 H22 C27 13 30 16 30 21 C30 26 27 29 22 29 H18 V35" stroke="#009CDE" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- PayPal wordmark -->
+  <text x="50" y="36" font-family="'Helvetica Neue',Arial,sans-serif" font-weight="900" font-size="32" fill="#009CDE" letter-spacing="-1">Pay</text>
+  <text x="108" y="36" font-family="'Helvetica Neue',Arial,sans-serif" font-weight="900" font-size="32" fill="#003087" letter-spacing="-1">Pal</text>
+</svg>

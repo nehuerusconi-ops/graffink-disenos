@@ -104,26 +104,37 @@ router.post("/payments/mercadopago/preference", async (req, res): Promise<void> 
       .returning();
 
     const preference = new Preference(mpClient);
-    const pref = await preference.create({
-      body: {
-        external_reference: order.id,
-        payer: { name: customerName, email: customerEmail },
-        items: orderItems.map((it) => ({
-          id: it.productId,
-          title: it.name,
-          quantity: it.quantity,
-          unit_price: it.price,
-          currency_id: "ARS",
-        })),
-        back_urls: {
-          success: `https://${DOMAIN}/checkout/success`,
-          pending: `https://${DOMAIN}/checkout/pending`,
-          failure: `https://${DOMAIN}/checkout/failure`,
-        },
-        auto_return: "approved",
-        notification_url: `https://${DOMAIN}/api/webhooks/mercadopago`,
-      },
-    });
+
+    // Determine whether we are in production (REPLIT_DEPLOYMENT is set by Replit
+    // when the app is deployed; in dev it is unset).
+    const isProduction = !!process.env["REPLIT_DEPLOYMENT"];
+
+    const prefBody: Parameters<typeof preference.create>[0]["body"] = {
+      external_reference: order.id,
+      items: orderItems.map((it) => ({
+        id: it.productId,
+        title: it.name,
+        quantity: it.quantity,
+        unit_price: it.price,
+        currency_id: "ARS",
+      })),
+    };
+
+    // back_urls and auto_return require the domain to be whitelisted in the
+    // Mercado Pago developer application. In production the deployed domain is
+    // registered; in development omit them so the preference still creates and
+    // MP will use the default redirect configured in the application dashboard.
+    if (isProduction) {
+      prefBody.back_urls = {
+        success: `https://${DOMAIN}/checkout/success`,
+        pending: `https://${DOMAIN}/checkout/pending`,
+        failure: `https://${DOMAIN}/checkout/failure`,
+      };
+      prefBody.auto_return = "approved";
+      prefBody.notification_url = `https://${DOMAIN}/api/webhooks/mercadopago`;
+    }
+
+    const pref = await preference.create({ body: prefBody });
 
     res.json({
       init_point: pref.init_point,
@@ -131,7 +142,23 @@ router.post("/payments/mercadopago/preference", async (req, res): Promise<void> 
       orderId: order.id,
     });
   } catch (err) {
-    req.log.error({ err }, "Failed to create MP preference");
+    const mpErr = err as Record<string, unknown>;
+    const mpCode = typeof mpErr?.code === "string" ? mpErr.code : undefined;
+    req.log.error({ err, mpCode }, "Failed to create MP preference");
+
+    // Provide a specific message for the common misconfiguration error.
+    // PA_UNAUTHORIZED_RESULT_FROM_POLICIES means the MP application associated
+    // with this access token has not enabled Checkout Pro or has account
+    // restrictions. The merchant must activate the application in the
+    // Mercado Pago developer panel (mercadopago.com.ar/developers/panel/app).
+    if (mpCode === "PA_UNAUTHORIZED_RESULT_FROM_POLICIES") {
+      res.status(503).json({
+        error: "La aplicación de Mercado Pago no está activada. Activá Checkout Pro en mercadopago.com.ar/developers/panel/app",
+        code: mpCode,
+      });
+      return;
+    }
+
     res.status(500).json({ error: "No se pudo crear la preferencia de pago" });
   }
 });

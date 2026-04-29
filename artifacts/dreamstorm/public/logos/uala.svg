@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" role="img" aria-label="Ualá Bis">
+  <!-- Ualá wordmark in white (used on purple bg) -->
+  <text x="4" y="46" font-family="'Helvetica Neue',Arial,sans-serif" font-weight="900" font-size="44" fill="#ffffff" letter-spacing="-1">ualá</text>
+  <!-- "bis" pill badge -->
+  <rect x="132" y="10" width="60" height="34" rx="12" fill="rgba(255,255,255,0.3)"/>
+  <text x="162" y="33" font-family="'Helvetica Neue',Arial,sans-serif" font-weight="800" font-size="18" fill="#ffffff" text-anchor="middle" letter-spacing="1">bis</text>
+</svg>

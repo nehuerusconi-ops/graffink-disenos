@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useCart } from "./CartContext";
 import { CheckCircle2, Loader2, ExternalLink, ArrowLeft, Mail } from "lucide-react";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
-import { MercadoPagoLogoWhite, UalaBisLogo, PaypalLogo } from "./PaymentLogos";
+import { MercadoPagoLogoWhite, UalaBisLogo, PaypalLogoWhite } from "./PaymentLogos";
 import { toast } from "sonner";
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
@@ -63,7 +63,7 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
         }),
       });
       if (!resp.ok) {
-        const err = (await resp.json().catch(() => ({}))) as { error?: string };
+        const err = (await resp.json().catch(() => ({}))) as { error?: string; code?: string };
         throw new Error(err.error ?? "No se pudo crear la preferencia");
       }
       const data = (await resp.json()) as { init_point: string; sandbox_init_point: string };
@@ -216,7 +216,7 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                 className="w-full flex items-center p-4 bg-[#003087] rounded-lg hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-900/40 transition-all duration-200"
               >
                 <div className="flex-1 text-left">
-                  <PaypalLogo className="h-8 w-auto" />
+                  <PaypalLogoWhite className="h-8 w-auto" />
                   <div className="text-white/80 text-sm font-medium mt-1">Pagá en USD desde cualquier país</div>
                 </div>
               </button>

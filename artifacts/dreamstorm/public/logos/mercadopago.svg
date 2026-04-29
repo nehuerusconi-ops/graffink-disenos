@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" role="img" aria-label="Mercado Pago">
+  <!-- Blue rounded rect background for icon -->
+  <rect x="0" y="8" width="64" height="64" rx="16" fill="#009EE3"/>
+  <!-- Simplified MP checkmark/shield mark in white -->
+  <path d="M20 48 C20 36 28 28 38 28 C44 28 49 31 52 36 L46 40 C44 37 41 35 38 35 C32 35 27 40 27 48 C27 56 32 61 38 61 C41 61 44 59 46 56 L52 60 C49 65 44 68 38 68 C28 68 20 59 20 48Z" fill="#fff"/>
+  <!-- MP Wordmark -->
+  <text x="80" y="38" font-family="'Helvetica Neue',Arial,sans-serif" font-weight="700" font-size="18" fill="#009EE3" letter-spacing="1">mercado</text>
+  <text x="80" y="62" font-family="'Helvetica Neue',Arial,sans-serif" font-weight="900" font-size="22" fill="#009EE3" letter-spacing="0.5">pago</text>
+</svg>
