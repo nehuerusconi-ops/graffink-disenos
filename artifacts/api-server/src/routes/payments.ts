@@ -298,6 +298,12 @@ router.post("/payments/mercadopago/preference", async (req, res): Promise<void> 
     // design as its own line and append a single "Armar plancha" service
     // line when isPlanchaGrouped, so the gateway charges sum(designs) +
     // planchaPrice and the webhook amount-check passes.
+    // We deliberately use the store name ("GraffInk Diseños") instead of the
+    // per-design product name as the line title shown on the Mercado Pago
+    // checkout. The buyer should see the store name on their statement / MP
+    // checkout, not the internal design name. We still keep one MP line per
+    // design (with the real productId, quantity and unit_price) so the
+    // gateway charges the right total and the webhook amount-check passes.
     const mpItems: Array<{
       id: string;
       title: string;
@@ -306,7 +312,7 @@ router.post("/payments/mercadopago/preference", async (req, res): Promise<void> 
       currency_id: "ARS";
     }> = orderItems.map((it) => ({
       id: it.productId,
-      title: it.name,
+      title: "GraffInk Diseños",
       quantity: it.quantity,
       unit_price: it.price,
       currency_id: "ARS",
@@ -314,7 +320,7 @@ router.post("/payments/mercadopago/preference", async (req, res): Promise<void> 
     if (isPlanchaGrouped && planchaPrice > 0) {
       mpItems.push({
         id: "armar-plancha",
-        title: `Armar plancha (${orderItems.length} diseño${orderItems.length > 1 ? "s" : ""})`,
+        title: "GraffInk Diseños",
         quantity: 1,
         unit_price: planchaPrice,
         currency_id: "ARS",
@@ -635,9 +641,10 @@ router.post("/payments/paypal/create-order", async (req, res): Promise<void> => 
     const token = await getPaypalAccessToken();
     const base = paypalBase();
 
-    const description = isPlanchaGrouped
-      ? `GraffInk Diseños — ${orderItems.length} diseño${orderItems.length > 1 ? "s" : ""} + armar plancha`
-      : `GraffInk Diseños — ${orderItems.length} diseño${orderItems.length > 1 ? "s" : ""}`;
+    // Buyer-facing description shown on the PayPal checkout. We use the
+    // store name only (no per-design product names, no diseño count) so
+    // the buyer sees a clean brand label instead of internal details.
+    const description = "GraffInk Diseños";
 
     const ppResp = await fetch(`${base}/v2/checkout/orders`, {
       method: "POST",

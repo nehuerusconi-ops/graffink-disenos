@@ -8,9 +8,13 @@ import { useCart } from "@/components/storefront/CartContext";
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
-// Polling config: wait up to 30s for webhook to confirm payment
-const POLL_INTERVAL_MS = 2500;
-const POLL_MAX_ATTEMPTS = 12;
+// Polling config: aggressive early polling so the buyer sees the
+// "Pago confirmado" state within ~1s when the webhook is fast (PayPal
+// captures synchronously, MP webhook is usually 2-5s). We poll once
+// every 800 ms for up to ~32s before giving up and showing the
+// timed-out message (the webhook may still arrive later by email).
+const POLL_INTERVAL_MS = 800;
+const POLL_MAX_ATTEMPTS = 40;
 
 type ResultType = "success" | "pending" | "failure";
 
@@ -66,10 +70,26 @@ export default function CheckoutResult({ type }: { type: ResultType }) {
         });
     };
 
-    // Start polling after a short initial delay (webhook usually arrives within 2-5s)
-    timerRef.current = setTimeout(poll, 1500);
+    // Fire the very first attempt right away (PayPal capture is already done
+    // by the time we get here, so often the order is paid on attempt #1).
+    poll();
+
+    // If the user tabs away and comes back, force an immediate re-poll
+    // instead of waiting up to POLL_INTERVAL_MS.
+    const onVisible = () => {
+      if (
+        document.visibilityState === "visible" &&
+        attemptsRef.current < POLL_MAX_ATTEMPTS
+      ) {
+        if (timerRef.current) clearTimeout(timerRef.current);
+        poll();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [type, orderId, pollingState]);
 
