@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Header } from "@/components/storefront/Header";
 import { Footer } from "@/components/storefront/Footer";
 import { useLocation } from "wouter";
+import { toStorageUrl } from "@/lib/storageUrl";
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
@@ -78,13 +79,6 @@ export default function MisCompras() {
     } finally {
       setLoading(false);
     }
-  }
-
-  function toStorageUrl(path: string): string {
-    if (path.startsWith("/objects/") || path.startsWith("/public-objects/")) {
-      return `${BASE}/api/storage${path}`;
-    }
-    return path;
   }
 
   function downloadUrl(item: OrderItem): string {

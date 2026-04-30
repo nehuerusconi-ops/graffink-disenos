@@ -1,6 +1,7 @@
 import { useListProducts } from "@workspace/api-client-react";
 import type { Product as ApiProduct } from "@workspace/api-client-react";
 import type { Product } from "@/data/products";
+import { toStorageUrl } from "@/lib/storageUrl";
 
 function toClientProduct(p: ApiProduct): Product {
   return {
@@ -8,8 +9,8 @@ function toClientProduct(p: ApiProduct): Product {
     name: p.name,
     category: p.category as Product["category"],
     price: p.price,
-    image: p.imagePath,
-    filePath: p.filePath,
+    image: toStorageUrl(p.imagePath),
+    filePath: p.filePath ? toStorageUrl(p.filePath) : null,
     isBestSeller: p.isBestSeller,
     description: p.description ?? null,
     specifications: p.specifications ?? null,

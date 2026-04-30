@@ -20,6 +20,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { CATEGORIES, Category, type ProductSpec } from "@/data/products";
+import { toStorageUrl } from "@/lib/storageUrl";
 import { toast } from "sonner";
 import { Loader2, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
 
@@ -60,10 +61,7 @@ function slugify(input: string): string {
 
 function renderImage(path: string | null) {
   if (!path) return null;
-  if (path.startsWith("/objects/")) {
-    return <img src={`/api/storage${path}`} alt="" className="w-full h-full object-cover" />;
-  }
-  return <img src={path} alt="" className="w-full h-full object-cover" />;
+  return <img src={toStorageUrl(path)} alt="" className="w-full h-full object-cover" />;
 }
 
 export function ProductsTab() {
