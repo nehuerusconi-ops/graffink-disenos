@@ -6,9 +6,17 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./capturePaypalOrderBody";
+export * from "./checkoutInput";
+export * from "./checkoutInputItemsItem";
+export * from "./createMercadoPagoPreference200";
+export * from "./createPaypalOrder200";
 export * from "./errorResponse";
+export * from "./getOrderInvoice200";
+export * from "./getUalaLink200";
 export * from "./healthStatus";
 export * from "./order";
+export * from "./orderConfirmationSource";
 export * from "./orderInput";
 export * from "./orderInputPaymentMethod";
 export * from "./orderItem";

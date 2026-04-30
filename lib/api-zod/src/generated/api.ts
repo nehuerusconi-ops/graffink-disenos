@@ -127,12 +127,17 @@ export const ListOrdersResponseItem = zod.object({
   total: zod.number(),
   paymentMethod: zod.enum(["mercadopago", "uala", "paypal"]),
   status: zod.enum(["pending", "paid", "failed", "refunded"]),
+  confirmationSource: zod
+    .enum(["webhook", "manual", "paypal-capture"])
+    .nullish(),
   createdAt: zod.coerce.date(),
 });
 export const ListOrdersResponse = zod.array(ListOrdersResponseItem);
 
 /**
- * @summary Create order (public, called from checkout)
+ * Reserved for admin manual order entry. Real customer orders must go through /payments/mercadopago/preference or /payments/paypal/create-order and are confirmed by the gateway before being marked paid.
+
+ * @summary Create manual order (admin-only — requireAdmin)
  */
 
 export const CreateOrderBody = zod.object({
@@ -210,6 +215,9 @@ export const GetOrderResponse = zod.object({
   total: zod.number(),
   paymentMethod: zod.enum(["mercadopago", "uala", "paypal"]),
   status: zod.enum(["pending", "paid", "failed", "refunded"]),
+  confirmationSource: zod
+    .enum(["webhook", "manual", "paypal-capture"])
+    .nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -225,4 +233,120 @@ export const RequestUploadUrlBody = zod.object({
 export const RequestUploadUrlResponse = zod.object({
   uploadURL: zod.string(),
   objectPath: zod.string(),
+});
+
+/**
+ * Resolves product prices server-side from productId+quantity, creates a pending order, and returns a Mercado Pago init_point URL. Cart only shows productId and quantity — prices are never trusted from client input.
+
+ * @summary Create Mercado Pago Checkout Pro preference
+ */
+
+export const createMercadoPagoPreferenceBodyItemsItemQuantityMax = 50;
+
+export const createMercadoPagoPreferenceBodyItemsMax = 50;
+
+export const CreateMercadoPagoPreferenceBody = zod.object({
+  customerName: zod.string().min(1),
+  customerEmail: zod.string().email(),
+  items: zod
+    .array(
+      zod.object({
+        productId: zod.string(),
+        quantity: zod
+          .number()
+          .min(1)
+          .max(createMercadoPagoPreferenceBodyItemsItemQuantityMax),
+      }),
+    )
+    .min(1)
+    .max(createMercadoPagoPreferenceBodyItemsMax),
+});
+
+export const CreateMercadoPagoPreferenceResponse = zod.object({
+  init_point: zod.string(),
+  sandbox_init_point: zod.string().optional(),
+  orderId: zod.string(),
+});
+
+/**
+ * Resolves product prices server-side, creates a pending order, and returns a PayPal order ID for use with the PayPal JS SDK buttons. Requires PAYPAL_ARS_USD_RATE env var.
+
+ * @summary Create PayPal order (inline SDK)
+ */
+
+export const createPaypalOrderBodyItemsItemQuantityMax = 50;
+
+export const createPaypalOrderBodyItemsMax = 50;
+
+export const CreatePaypalOrderBody = zod.object({
+  customerName: zod.string().min(1),
+  customerEmail: zod.string().email(),
+  items: zod
+    .array(
+      zod.object({
+        productId: zod.string(),
+        quantity: zod
+          .number()
+          .min(1)
+          .max(createPaypalOrderBodyItemsItemQuantityMax),
+      }),
+    )
+    .min(1)
+    .max(createPaypalOrderBodyItemsMax),
+});
+
+export const CreatePaypalOrderResponse = zod.object({
+  ppOrderId: zod.string(),
+  orderId: zod.string(),
+});
+
+/**
+ * @summary Capture PayPal order after buyer approval
+ */
+export const CapturePaypalOrderBody = zod.object({
+  ppOrderId: zod.string(),
+  orderId: zod.string(),
+});
+
+export const CapturePaypalOrderResponse = zod.object({
+  id: zod.string(),
+  invoiceNumber: zod.number(),
+  customerName: zod.string(),
+  customerEmail: zod.string(),
+  items: zod.array(
+    zod.object({
+      productId: zod.string(),
+      name: zod.string(),
+      price: zod.number(),
+      quantity: zod.number(),
+      imagePath: zod.string(),
+    }),
+  ),
+  total: zod.number(),
+  paymentMethod: zod.enum(["mercadopago", "uala", "paypal"]),
+  status: zod.enum(["pending", "paid", "failed", "refunded"]),
+  confirmationSource: zod
+    .enum(["webhook", "manual", "paypal-capture"])
+    .nullish(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Get Ualá Bis payment link for manual payment
+ */
+export const GetUalaLinkResponse = zod.object({
+  url: zod.string(),
+});
+
+/**
+ * Returns only the invoiceNumber for a paid order. Safe to expose publicly — orderId is a UUID from MP external_reference and no sensitive data is returned. Used by checkout/success to show invoice number after MP redirect.
+
+ * @summary Get invoice number for a confirmed order (public)
+ */
+export const GetOrderInvoiceParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const GetOrderInvoiceResponse = zod.object({
+  invoiceNumber: zod.number(),
 });

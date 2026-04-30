@@ -17,6 +17,18 @@ const PAYMENT_LABELS: Record<string, string> = {
   paypal: "PayPal",
 };
 
+const CONFIRMATION_SOURCE_LABELS: Record<string, string> = {
+  webhook: "Webhook automático",
+  manual: "Intervención manual",
+  "paypal-capture": "Captura PayPal",
+};
+
+const CONFIRMATION_SOURCE_COLORS: Record<string, string> = {
+  webhook: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+  manual: "bg-orange-500/10 text-orange-400 border-orange-500/20",
+  "paypal-capture": "bg-purple-500/10 text-purple-400 border-purple-500/20",
+};
+
 const STATUS_LABELS: Record<string, string> = {
   paid: "Pagada",
   pending: "Pendiente",
@@ -230,6 +242,7 @@ export function InvoicesTab() {
                   <th className="px-4 py-3 font-bold">Fecha</th>
                   <th className="px-4 py-3 font-bold">Cliente</th>
                   <th className="px-4 py-3 font-bold">Método</th>
+                  <th className="px-4 py-3 font-bold">Origen</th>
                   <th className="px-4 py-3 font-bold">Estado</th>
                   <th className="px-4 py-3 font-bold text-right">Total</th>
                   <th className="px-4 py-3 font-bold text-right">Acciones</th>
@@ -253,6 +266,17 @@ export function InvoicesTab() {
                     </td>
                     <td className="px-4 py-3 text-white/70">
                       {PAYMENT_LABELS[o.paymentMethod] ?? o.paymentMethod}
+                    </td>
+                    <td className="px-4 py-3">
+                      {o.confirmationSource ? (
+                        <span
+                          className={`inline-block text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-sm border ${CONFIRMATION_SOURCE_COLORS[o.confirmationSource] ?? "bg-white/5 text-white/40 border-white/10"}`}
+                        >
+                          {CONFIRMATION_SOURCE_LABELS[o.confirmationSource] ?? o.confirmationSource}
+                        </span>
+                      ) : (
+                        <span className="text-white/20 text-xs">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <span
@@ -315,6 +339,18 @@ export function InvoicesTab() {
                       {PAYMENT_LABELS[selected.paymentMethod] ?? selected.paymentMethod}
                     </p>
                   </div>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-white/40 mb-1">Origen de confirmación</p>
+                  {selected.confirmationSource ? (
+                    <span
+                      className={`inline-block text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-sm border ${CONFIRMATION_SOURCE_COLORS[selected.confirmationSource] ?? "bg-white/5 text-white/40 border-white/10"}`}
+                    >
+                      {CONFIRMATION_SOURCE_LABELS[selected.confirmationSource] ?? selected.confirmationSource}
+                    </span>
+                  ) : (
+                    <span className="text-white/30 text-xs">Sin dato (orden anterior a esta función)</span>
+                  )}
                 </div>
                 <div className="border-t border-white/5 pt-3">
                   <p className="text-[10px] uppercase tracking-widest text-white/40 mb-2">

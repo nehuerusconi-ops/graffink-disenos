@@ -5,6 +5,26 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type CheckoutInputItemsItem = {
+  productId: string;
+  /**
+   * @minimum 1
+   * @maximum 50
+   */
+  quantity: number;
+};
+
+export interface CheckoutInput {
+  /** @minLength 1 */
+  customerName: string;
+  customerEmail: string;
+  /**
+   * @minItems 1
+   * @maxItems 50
+   */
+  items: CheckoutInputItemsItem[];
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -78,6 +98,16 @@ export const OrderStatus = {
   refunded: "refunded",
 } as const;
 
+export type OrderConfirmationSource =
+  | (typeof OrderConfirmationSource)[keyof typeof OrderConfirmationSource]
+  | null;
+
+export const OrderConfirmationSource = {
+  webhook: "webhook",
+  manual: "manual",
+  "paypal-capture": "paypal-capture",
+} as const;
+
 export interface Order {
   id: string;
   invoiceNumber: number;
@@ -87,6 +117,7 @@ export interface Order {
   total: number;
   paymentMethod: OrderPaymentMethod;
   status: OrderStatus;
+  confirmationSource?: OrderConfirmationSource;
   createdAt: string;
 }
 
@@ -148,4 +179,28 @@ export type RequestUploadUrlBody = {
 export type RequestUploadUrl200 = {
   uploadURL: string;
   objectPath: string;
+};
+
+export type CreateMercadoPagoPreference200 = {
+  init_point: string;
+  sandbox_init_point?: string;
+  orderId: string;
+};
+
+export type CreatePaypalOrder200 = {
+  ppOrderId: string;
+  orderId: string;
+};
+
+export type CapturePaypalOrderBody = {
+  ppOrderId: string;
+  orderId: string;
+};
+
+export type GetUalaLink200 = {
+  url: string;
+};
+
+export type GetOrderInvoice200 = {
+  invoiceNumber: number;
 };

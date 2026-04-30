@@ -397,7 +397,7 @@ router.post("/webhooks/mercadopago", async (req, res): Promise<void> => {
 
     const [updated] = await db
       .update(ordersTable)
-      .set({ status: "paid", externalPaymentId: String(paymentId) })
+      .set({ status: "paid", externalPaymentId: String(paymentId), confirmationSource: "webhook" })
       .where(eq(ordersTable.id, orderId))
       .returning();
 
@@ -619,7 +619,7 @@ router.post("/payments/paypal/capture-order", async (req, res): Promise<void> =>
 
     const [updated] = await db
       .update(ordersTable)
-      .set({ status: "paid" })
+      .set({ status: "paid", confirmationSource: "paypal-capture" })
       .where(eq(ordersTable.id, orderId))
       .returning();
 

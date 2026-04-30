@@ -643,6 +643,10 @@ components:
         status:
           type: string
           enum: [pending, paid, failed, refunded]
+        confirmationSource:
+          type: string
+          enum: [webhook, manual, paypal-capture]
+          nullable: true
         createdAt:
           type: string
           format: date-time

@@ -33,6 +33,7 @@ router.post("/orders", requireAdmin, async (req, res): Promise<void> => {
         total,
         paymentMethod,
         status: "paid",
+        confirmationSource: "manual",
       })
       .returning();
     res.status(201).json(row);

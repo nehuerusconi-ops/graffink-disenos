@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { OrderConfirmationSource } from "./orderConfirmationSource";
 import type { OrderItem } from "./orderItem";
 import type { OrderPaymentMethod } from "./orderPaymentMethod";
 import type { OrderStatus } from "./orderStatus";
@@ -18,5 +19,6 @@ export interface Order {
   total: number;
   paymentMethod: OrderPaymentMethod;
   status: OrderStatus;
+  confirmationSource?: OrderConfirmationSource;
   createdAt: Date;
 }

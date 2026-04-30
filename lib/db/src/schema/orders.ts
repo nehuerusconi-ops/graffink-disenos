@@ -28,6 +28,9 @@ export const ordersTable = pgTable("orders", {
     .notNull()
     .default("paid"),
   externalPaymentId: varchar("external_payment_id", { length: 255 }),
+  confirmationSource: text("confirmation_source", {
+    enum: ["webhook", "manual", "paypal-capture"],
+  }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

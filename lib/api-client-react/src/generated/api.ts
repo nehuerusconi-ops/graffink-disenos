@@ -17,7 +17,13 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  CapturePaypalOrderBody,
+  CheckoutInput,
+  CreateMercadoPagoPreference200,
+  CreatePaypalOrder200,
   ErrorResponse,
+  GetOrderInvoice200,
+  GetUalaLink200,
   HealthStatus,
   Order,
   OrderInput,
@@ -607,7 +613,9 @@ export function useListOrders<
 }
 
 /**
- * @summary Create order (public, called from checkout)
+ * Reserved for admin manual order entry. Real customer orders must go through /payments/mercadopago/preference or /payments/paypal/create-order and are confirmed by the gateway before being marked paid.
+
+ * @summary Create manual order (admin-only — requireAdmin)
  */
 export const getCreateOrderUrl = () => {
   return `/api/orders`;
@@ -670,7 +678,7 @@ export type CreateOrderMutationBody = BodyType<OrderInput>;
 export type CreateOrderMutationError = ErrorType<ErrorResponse>;
 
 /**
- * @summary Create order (public, called from checkout)
+ * @summary Create manual order (admin-only — requireAdmin)
  */
 export const useCreateOrder = <
   TError = ErrorType<ErrorResponse>,
@@ -936,4 +944,523 @@ export const useRequestUploadUrl = <
   TContext
 > => {
   return useMutation(getRequestUploadUrlMutationOptions(options));
+};
+
+/**
+ * Resolves product prices server-side from productId+quantity, creates a pending order, and returns a Mercado Pago init_point URL. Cart only shows productId and quantity — prices are never trusted from client input.
+
+ * @summary Create Mercado Pago Checkout Pro preference
+ */
+export const getCreateMercadoPagoPreferenceUrl = () => {
+  return `/api/payments/mercadopago/preference`;
+};
+
+export const createMercadoPagoPreference = async (
+  checkoutInput: CheckoutInput,
+  options?: RequestInit,
+): Promise<CreateMercadoPagoPreference200> => {
+  return customFetch<CreateMercadoPagoPreference200>(
+    getCreateMercadoPagoPreferenceUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(checkoutInput),
+    },
+  );
+};
+
+export const getCreateMercadoPagoPreferenceMutationOptions = <
+  TError = ErrorType<ErrorResponse | void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMercadoPagoPreference>>,
+    TError,
+    { data: BodyType<CheckoutInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createMercadoPagoPreference>>,
+  TError,
+  { data: BodyType<CheckoutInput> },
+  TContext
+> => {
+  const mutationKey = ["createMercadoPagoPreference"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createMercadoPagoPreference>>,
+    { data: BodyType<CheckoutInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createMercadoPagoPreference(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateMercadoPagoPreferenceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createMercadoPagoPreference>>
+>;
+export type CreateMercadoPagoPreferenceMutationBody = BodyType<CheckoutInput>;
+export type CreateMercadoPagoPreferenceMutationError =
+  ErrorType<ErrorResponse | void>;
+
+/**
+ * @summary Create Mercado Pago Checkout Pro preference
+ */
+export const useCreateMercadoPagoPreference = <
+  TError = ErrorType<ErrorResponse | void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMercadoPagoPreference>>,
+    TError,
+    { data: BodyType<CheckoutInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createMercadoPagoPreference>>,
+  TError,
+  { data: BodyType<CheckoutInput> },
+  TContext
+> => {
+  return useMutation(getCreateMercadoPagoPreferenceMutationOptions(options));
+};
+
+/**
+ * Resolves product prices server-side, creates a pending order, and returns a PayPal order ID for use with the PayPal JS SDK buttons. Requires PAYPAL_ARS_USD_RATE env var.
+
+ * @summary Create PayPal order (inline SDK)
+ */
+export const getCreatePaypalOrderUrl = () => {
+  return `/api/payments/paypal/create-order`;
+};
+
+export const createPaypalOrder = async (
+  checkoutInput: CheckoutInput,
+  options?: RequestInit,
+): Promise<CreatePaypalOrder200> => {
+  return customFetch<CreatePaypalOrder200>(getCreatePaypalOrderUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(checkoutInput),
+  });
+};
+
+export const getCreatePaypalOrderMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPaypalOrder>>,
+    TError,
+    { data: BodyType<CheckoutInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createPaypalOrder>>,
+  TError,
+  { data: BodyType<CheckoutInput> },
+  TContext
+> => {
+  const mutationKey = ["createPaypalOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createPaypalOrder>>,
+    { data: BodyType<CheckoutInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createPaypalOrder(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreatePaypalOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPaypalOrder>>
+>;
+export type CreatePaypalOrderMutationBody = BodyType<CheckoutInput>;
+export type CreatePaypalOrderMutationError = ErrorType<void>;
+
+/**
+ * @summary Create PayPal order (inline SDK)
+ */
+export const useCreatePaypalOrder = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPaypalOrder>>,
+    TError,
+    { data: BodyType<CheckoutInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createPaypalOrder>>,
+  TError,
+  { data: BodyType<CheckoutInput> },
+  TContext
+> => {
+  return useMutation(getCreatePaypalOrderMutationOptions(options));
+};
+
+/**
+ * @summary Capture PayPal order after buyer approval
+ */
+export const getCapturePaypalOrderUrl = () => {
+  return `/api/payments/paypal/capture-order`;
+};
+
+export const capturePaypalOrder = async (
+  capturePaypalOrderBody: CapturePaypalOrderBody,
+  options?: RequestInit,
+): Promise<Order> => {
+  return customFetch<Order>(getCapturePaypalOrderUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(capturePaypalOrderBody),
+  });
+};
+
+export const getCapturePaypalOrderMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof capturePaypalOrder>>,
+    TError,
+    { data: BodyType<CapturePaypalOrderBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof capturePaypalOrder>>,
+  TError,
+  { data: BodyType<CapturePaypalOrderBody> },
+  TContext
+> => {
+  const mutationKey = ["capturePaypalOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof capturePaypalOrder>>,
+    { data: BodyType<CapturePaypalOrderBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return capturePaypalOrder(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CapturePaypalOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof capturePaypalOrder>>
+>;
+export type CapturePaypalOrderMutationBody = BodyType<CapturePaypalOrderBody>;
+export type CapturePaypalOrderMutationError = ErrorType<void>;
+
+/**
+ * @summary Capture PayPal order after buyer approval
+ */
+export const useCapturePaypalOrder = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof capturePaypalOrder>>,
+    TError,
+    { data: BodyType<CapturePaypalOrderBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof capturePaypalOrder>>,
+  TError,
+  { data: BodyType<CapturePaypalOrderBody> },
+  TContext
+> => {
+  return useMutation(getCapturePaypalOrderMutationOptions(options));
+};
+
+/**
+ * @summary Get Ualá Bis payment link for manual payment
+ */
+export const getGetUalaLinkUrl = () => {
+  return `/api/payments/uala/link`;
+};
+
+export const getUalaLink = async (
+  options?: RequestInit,
+): Promise<GetUalaLink200> => {
+  return customFetch<GetUalaLink200>(getGetUalaLinkUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getGetUalaLinkMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof getUalaLink>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof getUalaLink>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["getUalaLink"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof getUalaLink>>,
+    void
+  > = () => {
+    return getUalaLink(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GetUalaLinkMutationResult = NonNullable<
+  Awaited<ReturnType<typeof getUalaLink>>
+>;
+
+export type GetUalaLinkMutationError = ErrorType<void>;
+
+/**
+ * @summary Get Ualá Bis payment link for manual payment
+ */
+export const useGetUalaLink = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof getUalaLink>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof getUalaLink>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getGetUalaLinkMutationOptions(options));
+};
+
+/**
+ * Returns only the invoiceNumber for a paid order. Safe to expose publicly — orderId is a UUID from MP external_reference and no sensitive data is returned. Used by checkout/success to show invoice number after MP redirect.
+
+ * @summary Get invoice number for a confirmed order (public)
+ */
+export const getGetOrderInvoiceUrl = (id: string) => {
+  return `/api/orders/${id}/invoice`;
+};
+
+export const getOrderInvoice = async (
+  id: string,
+  options?: RequestInit,
+): Promise<GetOrderInvoice200> => {
+  return customFetch<GetOrderInvoice200>(getGetOrderInvoiceUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetOrderInvoiceQueryKey = (id: string) => {
+  return [`/api/orders/${id}/invoice`] as const;
+};
+
+export const getGetOrderInvoiceQueryOptions = <
+  TData = Awaited<ReturnType<typeof getOrderInvoice>>,
+  TError = ErrorType<void>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOrderInvoice>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetOrderInvoiceQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getOrderInvoice>>> = ({
+    signal,
+  }) => getOrderInvoice(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getOrderInvoice>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetOrderInvoiceQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getOrderInvoice>>
+>;
+export type GetOrderInvoiceQueryError = ErrorType<void>;
+
+/**
+ * @summary Get invoice number for a confirmed order (public)
+ */
+
+export function useGetOrderInvoice<
+  TData = Awaited<ReturnType<typeof getOrderInvoice>>,
+  TError = ErrorType<void>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOrderInvoice>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetOrderInvoiceQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Receives Mercado Pago payment notifications, re-validates payment status via MP API, verifies amount against order total, and marks order as paid + triggers email delivery.
+
+ * @summary Mercado Pago IPN webhook (server-to-server)
+ */
+export const getMercadoPagoWebhookUrl = () => {
+  return `/api/webhooks/mercadopago`;
+};
+
+export const mercadoPagoWebhook = async (
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getMercadoPagoWebhookUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getMercadoPagoWebhookMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof mercadoPagoWebhook>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof mercadoPagoWebhook>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["mercadoPagoWebhook"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof mercadoPagoWebhook>>,
+    void
+  > = () => {
+    return mercadoPagoWebhook(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MercadoPagoWebhookMutationResult = NonNullable<
+  Awaited<ReturnType<typeof mercadoPagoWebhook>>
+>;
+
+export type MercadoPagoWebhookMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Mercado Pago IPN webhook (server-to-server)
+ */
+export const useMercadoPagoWebhook = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof mercadoPagoWebhook>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof mercadoPagoWebhook>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getMercadoPagoWebhookMutationOptions(options));
 };
