@@ -67,8 +67,15 @@ export function CartSheet({ onCheckout }: { onCheckout: () => void }) {
               <ScrollArea className="flex-1 p-6">
                 <div className="flex flex-col gap-6">
                   {items.map((item) => (
-                    <div key={item.id} className="flex gap-4 items-center bg-white/5 p-3 border border-white/10 rounded-sm">
-                      <div className="w-20 h-20 bg-black/50 rounded-sm overflow-hidden shrink-0">
+                    <div
+                      key={item.id}
+                      className={`flex gap-4 items-center bg-white/5 p-3 border rounded-sm transition-colors ${
+                        groupAsPlancha
+                          ? "border-primary/30 bg-primary/[0.04]"
+                          : "border-white/10"
+                      }`}
+                    >
+                      <div className={`w-20 h-20 bg-black/50 rounded-sm overflow-hidden shrink-0 ${groupAsPlancha ? "opacity-80" : ""}`}>
                         <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -76,9 +83,16 @@ export function CartSheet({ onCheckout }: { onCheckout: () => void }) {
                           {item.category}
                         </div>
                         <h4 className="text-white font-bold truncate">{item.name}</h4>
-                        <div className="text-white/80 font-mono text-sm mt-1">
-                          {item.quantity} x ${item.price.toLocaleString("es-AR")}
-                        </div>
+                        {groupAsPlancha ? (
+                          <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/15 px-1.5 py-0.5 rounded">
+                            <Layers className="w-2.5 h-2.5" />
+                            Incluido en la plancha
+                          </div>
+                        ) : (
+                          <div className="text-white/80 font-mono text-sm mt-1">
+                            {item.quantity} x ${item.price.toLocaleString("es-AR")}
+                          </div>
+                        )}
                       </div>
                       <Button
                         variant="ghost"

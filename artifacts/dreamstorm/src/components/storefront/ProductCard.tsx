@@ -30,7 +30,28 @@ export function ProductCard({ product, index }: { product: Product; index: numbe
         transition={{ duration: 0.5, delay: index * 0.05 }}
         className="group relative flex flex-col bg-card border border-white/10 rounded-sm overflow-hidden hover:border-primary/50 transition-colors"
       >
-        <div className="relative aspect-square overflow-hidden bg-black/40 p-4">
+        {/*
+          Entire card (image area + product info row) is a click-target that
+          opens the details dialog. The "Agregar al carrito" button inside the
+          hover overlay stops propagation so quick-add still works without
+          opening the dialog. Implemented with role="button" on a div to avoid
+          nested-interactive-element issues (button inside button is invalid
+          HTML). Keyboard support: Enter/Space opens the dialog.
+        */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setOpen(true)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setOpen(true);
+            }
+          }}
+          className="relative aspect-square overflow-hidden bg-black/40 p-4 cursor-pointer w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          aria-label={`Ver detalles de ${product.name}`}
+          data-testid={`card-open-${product.id}`}
+        >
           {product.isBestSeller && (
             <Badge className="absolute top-3 left-3 z-10 bg-primary text-primary-foreground hover:bg-primary font-bold rounded-none">
               HOT
@@ -38,22 +59,20 @@ export function ProductCard({ product, index }: { product: Product; index: numbe
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity z-10 flex flex-col justify-end gap-2 p-4">
             <Button
-              onClick={() => addItem(product)}
+              onClick={(e) => {
+                e.stopPropagation();
+                addItem(product);
+              }}
               className="w-full font-bold rounded-none bg-white text-black hover:bg-primary hover:text-white transition-colors"
               data-testid={`button-add-${product.id}`}
             >
               <ShoppingCart className="mr-2 h-4 w-4" />
               Agregar al carrito
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => setOpen(true)}
-              className="w-full font-bold rounded-none border-white/30 bg-black/40 text-white hover:bg-white hover:text-black"
-              data-testid={`button-details-${product.id}`}
-            >
-              <Eye className="mr-2 h-4 w-4" />
-              Ver detalles
-            </Button>
+            <div className="w-full text-center text-[11px] font-bold uppercase tracking-widest text-white/80 flex items-center justify-center gap-1.5 pt-1">
+              <Eye className="h-3 w-3" />
+              Click para ver detalles
+            </div>
           </div>
           <img
             src={product.image}
@@ -61,7 +80,19 @@ export function ProductCard({ product, index }: { product: Product; index: numbe
             className="w-full h-full object-contain filter drop-shadow-2xl group-hover:scale-110 transition-transform duration-500"
           />
         </div>
-        <div className="p-4 flex flex-col gap-1">
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setOpen(true)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setOpen(true);
+            }
+          }}
+          className="p-4 flex flex-col gap-1 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          aria-label={`Ver detalles de ${product.name}`}
+        >
           <div className="text-xs font-medium text-primary tracking-wider uppercase">
             {product.category}
           </div>
