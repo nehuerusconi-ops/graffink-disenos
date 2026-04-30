@@ -8,6 +8,7 @@ import { CheckCircle2, Loader2, ExternalLink, ArrowLeft, Mail, ShieldCheck, Lock
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { MercadoPagoLogo, UalaBisLogo, PaypalLogoWhite } from "./PaymentLogos";
 import { toast } from "sonner";
+import { isAcceptableDniInput, dniForPayload as buildDniForPayload } from "./dniInput";
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 const VITE_PAYPAL_CLIENT_ID = import.meta.env.VITE_PAYPAL_CLIENT_ID as string | undefined;
@@ -91,11 +92,7 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
       toast.error("Completá tu nombre y email");
       return;
     }
-    const dniDigits = customerDni.replace(/\D/g, "");
-    if (
-      dniDigits.length > 0 &&
-      !(dniDigits.length === 7 || dniDigits.length === 8 || dniDigits.length === 11)
-    ) {
+    if (!isAcceptableDniInput(customerDni)) {
       toast.error("Ingresá un DNI (7-8 dígitos) o CUIT (11 dígitos)");
       return;
     }
@@ -103,11 +100,7 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   };
 
   // Always send the sanitised DNI (digits only, empty allowed).
-  const dniForPayload = (): string | undefined => {
-    const d = customerDni.replace(/\D/g, "");
-    if (d.length === 7 || d.length === 8 || d.length === 11) return d;
-    return undefined;
-  };
+  const dniForPayload = (): string | undefined => buildDniForPayload(customerDni);
 
   // ---------- Mercado Pago ----------
   const handleMercadoPago = async () => {
