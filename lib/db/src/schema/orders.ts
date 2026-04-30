@@ -19,6 +19,7 @@ export const ordersTable = pgTable("orders", {
   invoiceNumber: serial("invoice_number").notNull(),
   customerName: text("customer_name").notNull(),
   customerEmail: text("customer_email").notNull(),
+  customerDni: text("customer_dni"),
   items: jsonb("items").$type<OrderItem[]>().notNull(),
   total: integer("total").notNull(),
   paymentMethod: text("payment_method", {

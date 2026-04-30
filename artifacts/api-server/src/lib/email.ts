@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import type { Order } from "@workspace/db";
 import { logger } from "./logger";
+import { buildInvoicePdf } from "./pdfInvoice";
 
 const GMAIL_USER = process.env["GMAIL_USER"];
 const GMAIL_APP_PASSWORD = process.env["GMAIL_APP_PASSWORD"];
@@ -244,14 +245,31 @@ export async function sendOrderConfirmationEmail(order: Order): Promise<void> {
 </body>
 </html>`;
 
+  // Try to attach a PDF receipt — never block email if PDF generation fails.
+  const attachments: { filename: string; content: Buffer; contentType: string }[] = [];
+  try {
+    const pdfBuffer = await buildInvoicePdf(order);
+    attachments.push({
+      filename: `comprobante-N${invoiceStr}.pdf`,
+      content: pdfBuffer,
+      contentType: "application/pdf",
+    });
+  } catch (err) {
+    logger.error({ err, orderId: order.id }, "Failed to build invoice PDF — sending email without attachment");
+  }
+
   try {
     await transporter.sendMail({
       from: `"DTF LAB" <${GMAIL_USER}>`,
       to: order.customerEmail,
       subject: `✅ DTF LAB — Factura N° ${invoiceStr} confirmada`,
       html,
+      attachments: attachments.length > 0 ? attachments : undefined,
     });
-    logger.info({ orderId: order.id, to: order.customerEmail }, "Order confirmation email sent");
+    logger.info(
+      { orderId: order.id, to: order.customerEmail, hasPdf: attachments.length > 0 },
+      "Order confirmation email sent",
+    );
   } catch (err) {
     logger.error({ err, orderId: order.id }, "Failed to send order confirmation email");
   }

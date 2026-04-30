@@ -7,6 +7,7 @@ import { eq, inArray } from "drizzle-orm";
 import { sendOrderConfirmationEmail, sendWebhookSignatureAlertEmail } from "../lib/email";
 import { logger } from "../lib/logger";
 import { requireAdmin } from "../middlewares/requireAdmin";
+import { isValidDniOrCuit } from "../lib/dniCuit";
 import { z } from "zod";
 
 const router: IRouter = Router();
@@ -118,6 +119,14 @@ const CartItemSchema = z.object({
 const CustomerInfoSchema = z.object({
   customerName: z.string().min(1),
   customerEmail: z.string().email(),
+  customerDni: z
+    .string()
+    .trim()
+    .optional()
+    .refine(
+      (v) => isValidDniOrCuit(v ?? null),
+      "DNI/CUIT inválido (DNI 7-8 dígitos o CUIT 11 dígitos)",
+    ),
   items: z.array(CartItemSchema).min(1).max(50),
 });
 
@@ -163,7 +172,7 @@ router.post("/payments/mercadopago/preference", async (req, res): Promise<void> 
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { customerName, customerEmail, items: cartItems } = parsed.data;
+  const { customerName, customerEmail, customerDni, items: cartItems } = parsed.data;
 
   try {
     const resolved = await resolveCartItems(cartItems);
@@ -179,6 +188,7 @@ router.post("/payments/mercadopago/preference", async (req, res): Promise<void> 
       .values({
         customerName: customerName.trim(),
         customerEmail: customerEmail.trim().toLowerCase(),
+        customerDni: customerDni && customerDni.length > 0 ? customerDni : null,
         items: orderItems,
         total,
         paymentMethod: "mercadopago",
@@ -452,7 +462,7 @@ router.post("/payments/paypal/create-order", async (req, res): Promise<void> => 
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { customerName, customerEmail, items: cartItems } = parsed.data;
+  const { customerName, customerEmail, customerDni, items: cartItems } = parsed.data;
 
   try {
     const resolved = await resolveCartItems(cartItems);
@@ -467,6 +477,7 @@ router.post("/payments/paypal/create-order", async (req, res): Promise<void> => 
       .values({
         customerName: customerName.trim(),
         customerEmail: customerEmail.trim().toLowerCase(),
+        customerDni: customerDni && customerDni.length > 0 ? customerDni : null,
         items: orderItems,
         total,
         paymentMethod: "paypal",

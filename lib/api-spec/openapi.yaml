@@ -485,6 +485,10 @@ components:
         customerEmail:
           type: string
           format: email
+        customerDni:
+          type: string
+          nullable: true
+          description: DNI o CUIT del comprador (opcional, sólo dígitos, 7-11 caracteres)
         items:
           type: array
           minItems: 1
@@ -631,6 +635,9 @@ components:
           type: string
         customerEmail:
           type: string
+        customerDni:
+          type: string
+          nullable: true
         items:
           type: array
           items:
@@ -670,6 +677,9 @@ components:
         customerEmail:
           type: string
           format: email
+        customerDni:
+          type: string
+          nullable: true
         items:
           type: array
           minItems: 1

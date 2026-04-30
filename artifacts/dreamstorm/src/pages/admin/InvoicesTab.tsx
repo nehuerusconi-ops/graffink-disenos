@@ -3,13 +3,21 @@ import { useListOrders } from "@workspace/api-client-react";
 import type { Order } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, FileText, Printer, Search, Eye } from "lucide-react";
+import { Loader2, FileText, Printer, Search, Eye, Download } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
+const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
+
+function downloadInvoicePdf(orderId: string): void {
+  // Clerk session cookie is sent automatically (same origin); the server's
+  // requireAdmin middleware will validate it. Browser will start the download.
+  window.open(`${BASE}/api/orders/${orderId}/invoice-pdf`, "_blank");
+}
 
 const PAYMENT_LABELS: Record<string, string> = {
   mercadopago: "Mercado Pago",
@@ -306,6 +314,16 @@ export function InvoicesTab() {
                         >
                           <Printer className="h-4 w-4" />
                         </Button>
+                        {o.status === "paid" && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => downloadInvoicePdf(o.id)}
+                            title="Descargar comprobante PDF"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -331,6 +349,9 @@ export function InvoicesTab() {
                     <p className="text-[10px] uppercase tracking-widest text-white/40">Cliente</p>
                     <p className="text-white font-medium">{selected.customerName}</p>
                     <p className="text-xs">{selected.customerEmail}</p>
+                    {selected.customerDni && (
+                      <p className="text-xs text-white/50 font-mono">DNI/CUIT: {selected.customerDni}</p>
+                    )}
                   </div>
                   <div>
                     <p className="text-[10px] uppercase tracking-widest text-white/40">Fecha</p>
@@ -385,6 +406,15 @@ export function InvoicesTab() {
                 >
                   <Printer className="h-4 w-4 mr-2" /> Imprimir / Guardar PDF
                 </Button>
+                {selected.status === "paid" && (
+                  <Button
+                    onClick={() => downloadInvoicePdf(selected.id)}
+                    variant="outline"
+                    className="w-full border-white/10 hover:bg-white/5"
+                  >
+                    <Download className="h-4 w-4 mr-2" /> Descargar comprobante PDF
+                  </Button>
+                )}
               </div>
             </>
           )}

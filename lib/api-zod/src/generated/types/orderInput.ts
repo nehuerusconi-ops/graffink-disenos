@@ -12,6 +12,7 @@ export interface OrderInput {
   /** @minLength 1 */
   customerName: string;
   customerEmail: string;
+  customerDni?: string | null;
   /** @minItems 1 */
   items: OrderItem[];
   paymentMethod: OrderInputPaymentMethod;

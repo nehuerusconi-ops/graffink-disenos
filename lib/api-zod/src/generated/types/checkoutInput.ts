@@ -11,6 +11,8 @@ export interface CheckoutInput {
   /** @minLength 1 */
   customerName: string;
   customerEmail: string;
+  /** DNI o CUIT del comprador (opcional, sólo dígitos, 7-11 caracteres) */
+  customerDni?: string | null;
   /**
    * @minItems 1
    * @maxItems 50

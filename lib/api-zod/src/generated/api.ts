@@ -115,6 +115,7 @@ export const ListOrdersResponseItem = zod.object({
   invoiceNumber: zod.number(),
   customerName: zod.string(),
   customerEmail: zod.string(),
+  customerDni: zod.string().nullish(),
   items: zod.array(
     zod.object({
       productId: zod.string(),
@@ -143,6 +144,7 @@ export const ListOrdersResponse = zod.array(ListOrdersResponseItem);
 export const CreateOrderBody = zod.object({
   customerName: zod.string().min(1),
   customerEmail: zod.string().email(),
+  customerDni: zod.string().nullish(),
   items: zod
     .array(
       zod.object({
@@ -203,6 +205,7 @@ export const GetOrderResponse = zod.object({
   invoiceNumber: zod.number(),
   customerName: zod.string(),
   customerEmail: zod.string(),
+  customerDni: zod.string().nullish(),
   items: zod.array(
     zod.object({
       productId: zod.string(),
@@ -248,6 +251,12 @@ export const createMercadoPagoPreferenceBodyItemsMax = 50;
 export const CreateMercadoPagoPreferenceBody = zod.object({
   customerName: zod.string().min(1),
   customerEmail: zod.string().email(),
+  customerDni: zod
+    .string()
+    .nullish()
+    .describe(
+      "DNI o CUIT del comprador (opcional, sólo dígitos, 7-11 caracteres)",
+    ),
   items: zod
     .array(
       zod.object({
@@ -281,6 +290,12 @@ export const createPaypalOrderBodyItemsMax = 50;
 export const CreatePaypalOrderBody = zod.object({
   customerName: zod.string().min(1),
   customerEmail: zod.string().email(),
+  customerDni: zod
+    .string()
+    .nullish()
+    .describe(
+      "DNI o CUIT del comprador (opcional, sólo dígitos, 7-11 caracteres)",
+    ),
   items: zod
     .array(
       zod.object({
@@ -313,6 +328,7 @@ export const CapturePaypalOrderResponse = zod.object({
   invoiceNumber: zod.number(),
   customerName: zod.string(),
   customerEmail: zod.string(),
+  customerDni: zod.string().nullish(),
   items: zod.array(
     zod.object({
       productId: zod.string(),

@@ -7,6 +7,8 @@ import { CreateOrderBody, GetOrderParams } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
 import { requireAdmin } from "../middlewares/requireAdmin";
 import { ordersByEmailRateLimiter } from "../middlewares/rateLimiters";
+import { buildInvoicePdf } from "../lib/pdfInvoice";
+import { isValidDniOrCuit } from "../lib/dniCuit";
 
 const router: IRouter = Router();
 
@@ -21,7 +23,13 @@ router.post("/orders", requireAdmin, async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { items, customerName, customerEmail, paymentMethod } = parsed.data;
+  const { items, customerName, customerEmail, customerDni, paymentMethod } = parsed.data;
+  if (!isValidDniOrCuit(customerDni ?? null)) {
+    res
+      .status(400)
+      .json({ error: "DNI/CUIT inválido (DNI 7-8 dígitos o CUIT 11 dígitos)" });
+    return;
+  }
   const total = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
 
   try {
@@ -30,6 +38,7 @@ router.post("/orders", requireAdmin, async (req, res): Promise<void> => {
       .values({
         customerName: customerName.trim(),
         customerEmail: customerEmail.trim().toLowerCase(),
+        customerDni: customerDni && customerDni.trim().length > 0 ? customerDni.trim() : null,
         items: items as OrderItem[],
         total,
         paymentMethod,
@@ -202,6 +211,43 @@ router.get("/orders/:id", requireAuth, async (req, res): Promise<void> => {
     return;
   }
   res.json(row);
+});
+
+// Admin-only: download a PDF receipt for a paid order.
+// Returns 404 if the order is not paid (no receipt for pending/failed orders).
+router.get("/orders/:id/invoice-pdf", requireAdmin, async (req, res): Promise<void> => {
+  const params = GetOrderParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const [row] = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.id, params.data.id));
+  if (!row) {
+    res.status(404).json({ error: "Pedido no encontrado" });
+    return;
+  }
+  if (row.status !== "paid") {
+    res.status(404).json({ error: "El comprobante sólo está disponible para pedidos pagados" });
+    return;
+  }
+
+  try {
+    const buf = await buildInvoicePdf(row);
+    const invoiceStr = String(row.invoiceNumber).padStart(6, "0");
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="comprobante-N${invoiceStr}.pdf"`,
+    );
+    res.setHeader("Content-Length", String(buf.length));
+    res.end(buf);
+  } catch (err) {
+    req.log.error({ err, orderId: row.id }, "Failed to generate invoice PDF");
+    res.status(500).json({ error: "No se pudo generar el comprobante" });
+  }
 });
 
 // Public endpoint: returns only invoiceNumber for a confirmed order.

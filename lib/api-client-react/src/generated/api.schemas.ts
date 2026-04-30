@@ -18,6 +18,8 @@ export interface CheckoutInput {
   /** @minLength 1 */
   customerName: string;
   customerEmail: string;
+  /** DNI o CUIT del comprador (opcional, sólo dígitos, 7-11 caracteres) */
+  customerDni?: string | null;
   /**
    * @minItems 1
    * @maxItems 50
@@ -113,6 +115,7 @@ export interface Order {
   invoiceNumber: number;
   customerName: string;
   customerEmail: string;
+  customerDni?: string | null;
   items: OrderItem[];
   total: number;
   paymentMethod: OrderPaymentMethod;
@@ -134,6 +137,7 @@ export interface OrderInput {
   /** @minLength 1 */
   customerName: string;
   customerEmail: string;
+  customerDni?: string | null;
   /** @minItems 1 */
   items: OrderItem[];
   paymentMethod: OrderInputPaymentMethod;

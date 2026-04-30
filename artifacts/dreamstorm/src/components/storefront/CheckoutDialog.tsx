@@ -23,6 +23,7 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   const [step, setStep] = useState<Step>("details");
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
+  const [customerDni, setCustomerDni] = useState("");
   const [confirmed, setConfirmed] = useState<ConfirmedInfo | null>(null);
   // Use a ref to store the dbOrderId synchronously — avoids async state update issues
   // where onPaypalApprove closure could capture a stale null before setState flushes.
@@ -43,7 +44,22 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
       toast.error("Completá tu nombre y email");
       return;
     }
+    const dniDigits = customerDni.replace(/\D/g, "");
+    if (
+      dniDigits.length > 0 &&
+      !(dniDigits.length === 7 || dniDigits.length === 8 || dniDigits.length === 11)
+    ) {
+      toast.error("Ingresá un DNI (7-8 dígitos) o CUIT (11 dígitos)");
+      return;
+    }
     setStep("payment");
+  };
+
+  // Always send the sanitised DNI (digits only, empty allowed).
+  const dniForPayload = (): string | undefined => {
+    const d = customerDni.replace(/\D/g, "");
+    if (d.length === 7 || d.length === 8 || d.length === 11) return d;
+    return undefined;
   };
 
   // ---------- Mercado Pago ----------
@@ -56,6 +72,7 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
         body: JSON.stringify({
           customerName: customerName.trim(),
           customerEmail: customerEmail.trim(),
+          customerDni: dniForPayload(),
           items: items.map((it) => ({
             productId: it.id,
             quantity: it.quantity,
@@ -84,6 +101,7 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
       body: JSON.stringify({
         customerName: customerName.trim(),
         customerEmail: customerEmail.trim(),
+        customerDni: dniForPayload(),
         items: items.map((it) => ({
           productId: it.id,
           quantity: it.quantity,
@@ -160,6 +178,19 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                 <Label htmlFor="ce" className="text-white/80">Email</Label>
                 <Input id="ce" type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="vos@ejemplo.com" required />
                 <p className="text-xs text-white/50">Te enviamos los archivos y la factura a este email.</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="cdni" className="text-white/80">
+                  DNI o CUIT <span className="text-white/40 font-normal">(opcional)</span>
+                </Label>
+                <Input
+                  id="cdni"
+                  inputMode="numeric"
+                  value={customerDni}
+                  onChange={(e) => setCustomerDni(e.target.value.replace(/\D/g, "").slice(0, 11))}
+                  placeholder="20123456789"
+                />
+                <p className="text-xs text-white/50">DNI (7-8 dígitos) o CUIT (11 dígitos). Aparecerá en el comprobante adjunto al mail.</p>
               </div>
               <Button type="submit" size="lg" className="w-full h-12 mt-2 bg-primary text-white hover:bg-primary/90 font-bold">
                 Continuar al pago

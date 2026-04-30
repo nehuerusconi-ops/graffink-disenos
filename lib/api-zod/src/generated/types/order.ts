@@ -15,6 +15,7 @@ export interface Order {
   invoiceNumber: number;
   customerName: string;
   customerEmail: string;
+  customerDni?: string | null;
   items: OrderItem[];
   total: number;
   paymentMethod: OrderPaymentMethod;
