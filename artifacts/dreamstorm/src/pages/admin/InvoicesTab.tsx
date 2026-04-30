@@ -26,22 +26,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { describeDownloadError, readErrorMessage } from "./downloadErrors";
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
-
-// Map HTTP error codes to user-friendly Spanish messages. We single out 401/403
-// because those are the ones admins hit most often (Clerk session expired or
-// they no longer have admin role) and the previous behaviour of opening a
-// blank tab with raw JSON was confusing.
-function describeDownloadError(status: number): string {
-  if (status === 401) {
-    return "Tu sesión expiró. Iniciá sesión nuevamente para descargar.";
-  }
-  if (status === 403) {
-    return "No tenés permisos de administrador para descargar este archivo.";
-  }
-  return `No se pudo descargar el archivo (error ${status}).`;
-}
 
 // Triggers a download of `blob` with the given filename without navigating
 // away or opening a new tab. We create a transient <a> element, click it
@@ -76,7 +63,8 @@ async function downloadInvoicePdf(orderId: string): Promise<void> {
       credentials: "include",
     });
     if (!res.ok) {
-      toast.error(describeDownloadError(res.status));
+      const serverMessage = await readErrorMessage(res);
+      toast.error(describeDownloadError(res.status, serverMessage));
       return;
     }
     const blob = await res.blob();
@@ -113,7 +101,8 @@ async function downloadOrdersCsv(
       { credentials: "include" },
     );
     if (!res.ok) {
-      toast.error(describeDownloadError(res.status));
+      const serverMessage = await readErrorMessage(res);
+      toast.error(describeDownloadError(res.status, serverMessage));
       return;
     }
     const blob = await res.blob();
