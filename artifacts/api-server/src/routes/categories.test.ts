@@ -241,12 +241,12 @@ describe("GET /api/categories", () => {
 });
 
 describe("POST /api/categories", () => {
-  it("403s when caller is authenticated but not an admin", async () => {
-    currentAuth = { userId: "user_random" };
+  it("401s when caller is unauthenticated", async () => {
+    currentAuth = { userId: null };
     const res = await request(app)
       .post("/api/categories")
       .send({ name: "Lali" });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(401);
   });
 
   it("creates a category with a normalised slug", async () => {
