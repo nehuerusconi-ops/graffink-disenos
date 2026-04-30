@@ -6,6 +6,7 @@ import type { OrderItem } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 import { sendOrderConfirmationEmail } from "../lib/email";
 import { logger } from "../lib/logger";
+import { requireAdmin } from "../middlewares/requireAdmin";
 import { z } from "zod";
 
 const router: IRouter = Router();
@@ -17,11 +18,70 @@ const PAYPAL_CLIENT_ID = process.env["PAYPAL_CLIENT_ID"] ?? "";
 const PAYPAL_CLIENT_SECRET = process.env["PAYPAL_CLIENT_SECRET"] ?? "";
 const UALA_PAYMENT_LINK = process.env["UALA_PAYMENT_LINK"] ?? "";
 
-// ARS→USD conversion rate for PayPal (PayPal requires USD).
-// Set PAYPAL_ARS_USD_RATE env var to keep it up-to-date (e.g. 1200).
-// If not set, the server rejects PayPal orders rather than using a stale fallback.
-const _rawRate = process.env["PAYPAL_ARS_USD_RATE"];
-const PAYPAL_ARS_USD_RATE: number | null = _rawRate ? Number(_rawRate) : null;
+// ---------------------------------------------------------------------------
+// ARS→USD conversion rate for PayPal
+// Priority: PAYPAL_ARS_TO_USD_RATE env var > live rate from dolarapi.com (1h cache) > 1200 default
+// Set PAYPAL_ARS_TO_USD_RATE to override the automatic rate at any time without redeploy.
+// PAYPAL_ARS_USD_RATE is also accepted for backward compatibility.
+// ---------------------------------------------------------------------------
+const _rawRateEnv =
+  process.env["PAYPAL_ARS_TO_USD_RATE"] ?? process.env["PAYPAL_ARS_USD_RATE"];
+const PAYPAL_ARS_TO_USD_RATE_STATIC: number =
+  _rawRateEnv && Number(_rawRateEnv) > 0 ? Number(_rawRateEnv) : 1200;
+const PAYPAL_RATE_FROM_ENV = Boolean(_rawRateEnv && Number(_rawRateEnv) > 0);
+
+interface DolarApiResponse {
+  venta?: number;
+}
+let _dolarApiCache: { rate: number; fetchedAt: number } | null = null;
+const DOLAR_API_CACHE_MS = 60 * 60 * 1000; // 1 hour
+
+// Short-lived map: PayPal order ID → USD amount used at order creation.
+// Prevents rate drift between create-order and capture-order calls.
+// Entries are removed after successful capture or after 2 hours.
+const _paypalOrderUsd = new Map<string, { usd: number; createdAt: number }>();
+const PAYPAL_ORDER_USD_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+
+type RateSource = "env" | "dolarapi" | "default";
+
+async function getArsToUsdRate(): Promise<{ rate: number; source: RateSource; cachedAt: string | null }> {
+  if (PAYPAL_RATE_FROM_ENV) {
+    return { rate: PAYPAL_ARS_TO_USD_RATE_STATIC, source: "env", cachedAt: null };
+  }
+
+  const now = Date.now();
+  if (_dolarApiCache && now - _dolarApiCache.fetchedAt < DOLAR_API_CACHE_MS) {
+    return {
+      rate: _dolarApiCache.rate,
+      source: "dolarapi",
+      cachedAt: new Date(_dolarApiCache.fetchedAt).toISOString(),
+    };
+  }
+  try {
+    const resp = await fetch("https://dolarapi.com/v1/dolares/blue", {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (resp.ok) {
+      const data = (await resp.json()) as DolarApiResponse;
+      if (data.venta && data.venta > 0) {
+        _dolarApiCache = { rate: data.venta, fetchedAt: now };
+        logger.info({ rate: data.venta }, "ARS/USD rate fetched from dolarapi.com");
+        return {
+          rate: data.venta,
+          source: "dolarapi",
+          cachedAt: new Date(now).toISOString(),
+        };
+      }
+    }
+  } catch (err) {
+    logger.warn({ err }, "Failed to fetch ARS/USD rate from dolarapi.com, using fallback");
+  }
+  logger.warn(
+    { rate: PAYPAL_ARS_TO_USD_RATE_STATIC },
+    "Using fallback ARS/USD rate — set PAYPAL_ARS_TO_USD_RATE env var or ensure dolarapi.com is reachable",
+  );
+  return { rate: PAYPAL_ARS_TO_USD_RATE_STATIC, source: "default", cachedAt: null };
+}
 
 const mpClient = new MercadoPagoConfig({ accessToken: MP_ACCESS_TOKEN });
 
@@ -279,6 +339,15 @@ router.post("/webhooks/mercadopago", async (req, res): Promise<void> => {
 });
 
 // ---------------------------------------------------------------------------
+// PayPal — exchange rate info (admin)
+// ---------------------------------------------------------------------------
+
+router.get("/payments/paypal/rate", requireAdmin, async (_req, res): Promise<void> => {
+  const { rate, source, cachedAt } = await getArsToUsdRate();
+  res.json({ arsToUsd: rate, source, cachedAt });
+});
+
+// ---------------------------------------------------------------------------
 // PayPal — create order
 // ---------------------------------------------------------------------------
 
@@ -314,11 +383,6 @@ router.post("/payments/paypal/create-order", async (req, res): Promise<void> => 
   }
   const { customerName, customerEmail, items: cartItems } = parsed.data;
 
-  if (!PAYPAL_ARS_USD_RATE || PAYPAL_ARS_USD_RATE <= 0) {
-    res.status(503).json({ error: "Tipo de cambio ARS/USD no configurado. Contacte al administrador." });
-    return;
-  }
-
   try {
     const resolved = await resolveCartItems(cartItems);
     if ("error" in resolved) {
@@ -342,8 +406,10 @@ router.post("/payments/paypal/create-order", async (req, res): Promise<void> => 
     const token = await getPaypalAccessToken();
     const base = paypalBase();
 
-    // Convert ARS to USD using the configured exchange rate (PAYPAL_ARS_USD_RATE env var).
-    const usdAmount = (total / PAYPAL_ARS_USD_RATE).toFixed(2);
+    // Convert ARS to USD using the configured rate (PAYPAL_ARS_TO_USD_RATE env var,
+    // live dolarapi.com rate with 1h cache, or 1200 default).
+    const { rate: arsToUsd } = await getArsToUsdRate();
+    const usdAmount = (total / arsToUsd).toFixed(2);
 
     const ppResp = await fetch(`${base}/v2/checkout/orders`, {
       method: "POST",
@@ -379,6 +445,10 @@ router.post("/payments/paypal/create-order", async (req, res): Promise<void> => 
       .update(ordersTable)
       .set({ externalPaymentId: ppOrder.id })
       .where(eq(ordersTable.id, order.id));
+
+    // Remember the USD amount used for this order so capture validation uses
+    // the same rate even if the live rate changes before capture.
+    _paypalOrderUsd.set(ppOrder.id, { usd: parseFloat(usdAmount), createdAt: Date.now() });
 
     res.json({ ppOrderId: ppOrder.id, orderId: order.id });
   } catch (err) {
@@ -453,16 +523,27 @@ router.post("/payments/paypal/capture-order", async (req, res): Promise<void> =>
       return;
     }
 
-    // Verify captured amount against stored order total (fraud protection)
-    if (PAYPAL_ARS_USD_RATE) {
-      const capturedUsd = parseFloat(capturedUnit?.payments?.captures?.[0]?.amount?.value ?? "0");
-      const expectedUsd = dbOrder.total / PAYPAL_ARS_USD_RATE;
-      // Allow 1 USD tolerance for rounding
+    // Verify captured amount against the USD amount set at order creation (fraud protection).
+    // We use the stored amount from _paypalOrderUsd rather than recomputing with the current
+    // rate to avoid false positives when the exchange rate changes between create and capture.
+    const capturedUsd = parseFloat(capturedUnit?.payments?.captures?.[0]?.amount?.value ?? "0");
+    const storedEntry = _paypalOrderUsd.get(ppOrderId);
+    // Purge stale entries from the map while we're here
+    const now = Date.now();
+    for (const [key, val] of _paypalOrderUsd.entries()) {
+      if (now - val.createdAt > PAYPAL_ORDER_USD_TTL_MS) _paypalOrderUsd.delete(key);
+    }
+    if (storedEntry) {
+      const expectedUsd = storedEntry.usd;
+      // Allow 1 USD tolerance for rounding differences
       if (capturedUsd > 0 && Math.abs(capturedUsd - expectedUsd) > 1) {
         req.log.error({ orderId, capturedUsd, expectedUsd }, "PayPal amount mismatch — NOT marking paid");
         res.status(400).json({ error: "El monto capturado no coincide con el total de la orden" });
         return;
       }
+      _paypalOrderUsd.delete(ppOrderId);
+    } else {
+      req.log.warn({ orderId, ppOrderId }, "PayPal USD amount not in memory (server restart?), skipping amount check");
     }
 
     const [updated] = await db
