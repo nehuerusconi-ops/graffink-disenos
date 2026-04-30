@@ -94,7 +94,26 @@ function formatMethod(method: string): string {
 // Webhook signature alert — rate-limited to MAX_ALERTS_PER_HOUR per hour
 // ---------------------------------------------------------------------------
 
-const MAX_ALERTS_PER_HOUR = 5;
+/**
+ * Resolve the per-hour cap on admin alert emails. Reads
+ * `WEBHOOK_ALERT_MAX_PER_HOUR` from the environment with a fallback of 5.
+ * Throws at module load if the override is set but is not a positive integer
+ * so the operator notices the misconfiguration immediately instead of silently
+ * keeping the old behaviour.
+ */
+function resolveMaxAlertsPerHour(): number {
+  const raw = process.env["WEBHOOK_ALERT_MAX_PER_HOUR"];
+  if (raw === undefined || raw === "") return 5;
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(
+      `Invalid WEBHOOK_ALERT_MAX_PER_HOUR value: "${raw}" (must be a positive integer)`,
+    );
+  }
+  return parsed;
+}
+
+const MAX_ALERTS_PER_HOUR = resolveMaxAlertsPerHour();
 const alertTimestamps: number[] = [];
 
 export async function sendWebhookSignatureAlertEmail(opts: {

@@ -71,4 +71,6 @@ https://{REPLIT_DOMAIN}/api/webhooks/mercadopago
 - Returns **401** and logs a warning if the signature is missing or invalid; nothing is processed
 - Returns **200** immediately after validation, then processes asynchronously
 
+**Admin alert rate limit:** when an invalid signature is detected the server emails the admin, capped to a maximum number of alerts per hour to avoid spam during attacks. The cap defaults to **5** and can be overridden at runtime (no redeploy needed) via the `WEBHOOK_ALERT_MAX_PER_HOUR` Replit secret. Must be a positive integer; the API server throws at startup if the value is set but invalid.
+
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
