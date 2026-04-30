@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCart } from "./CartContext";
-import { CheckCircle2, Loader2, ExternalLink, ArrowLeft, Mail } from "lucide-react";
+import { CheckCircle2, Loader2, ExternalLink, ArrowLeft, Mail, ShieldCheck, Lock } from "lucide-react";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { MercadoPagoLogo, UalaBisLogo, PaypalLogoWhite } from "./PaymentLogos";
 import { toast } from "sonner";
@@ -181,7 +181,8 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
               </DialogHeader>
             </div>
             <div className="p-6 flex flex-col gap-3">
-              <div className="flex items-center justify-end mb-1">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] uppercase tracking-widest text-white/40 font-semibold">Métodos disponibles</span>
                 <button type="button" onClick={() => setStep("details")} className="text-xs text-white/50 hover:text-white flex items-center gap-1">
                   <ArrowLeft className="w-3 h-3" /> Editar datos
                 </button>
@@ -190,39 +191,89 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
               {/* Mercado Pago */}
               <button
                 onClick={handleMercadoPago}
-                className="w-full flex items-center gap-3 p-4 bg-[#009EE3] rounded-lg hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[#009EE3]/30 transition-all duration-200"
+                className="group w-full flex items-center gap-3 p-4 bg-[#009EE3] rounded-xl border border-white/10 hover:border-white/30 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#009EE3]/40 transition-all duration-200"
               >
-                <div className="bg-white rounded-md p-1.5 shrink-0">
+                <div className="bg-white rounded-lg p-2 shrink-0 shadow-sm">
                   <MercadoPagoLogo className="h-10 w-10 object-contain" />
                 </div>
-                <div className="flex-1 text-left">
-                  <div className="text-white font-bold text-base leading-tight">Mercado Pago</div>
-                  <div className="text-white/80 text-sm font-medium mt-0.5">Tarjeta crédito/débito, transferencia bancaria o saldo MP</div>
+                <div className="flex-1 text-left min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-white font-bold text-base leading-tight">Mercado Pago</span>
+                    <span className="text-[9px] uppercase tracking-wider bg-white/20 text-white px-1.5 py-0.5 rounded font-bold">Recomendado</span>
+                  </div>
+                  <div className="text-white/85 text-xs font-medium mt-1 leading-snug">
+                    Tarjeta crédito/débito, transferencia bancaria o saldo MP
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <span className="text-[9px] bg-white text-[#1A1F71] px-1.5 py-0.5 rounded font-black tracking-wide">VISA</span>
+                    <span className="text-[9px] bg-white text-[#EB001B] px-1.5 py-0.5 rounded font-black tracking-wide">MASTER</span>
+                    <span className="text-[9px] bg-white text-[#006FCF] px-1.5 py-0.5 rounded font-black tracking-wide">AMEX</span>
+                    <span className="text-[9px] bg-white/20 text-white px-1.5 py-0.5 rounded font-bold">+ más</span>
+                  </div>
                 </div>
-                <ExternalLink className="w-4 h-4 text-white/60 ml-2 shrink-0" />
+                <ExternalLink className="w-4 h-4 text-white/70 ml-1 shrink-0 group-hover:translate-x-0.5 transition-transform" />
               </button>
 
               {/* Ualá Bis */}
               <button
                 onClick={() => setStep("uala-instructions")}
-                className="w-full flex items-center p-4 bg-gradient-to-r from-[#7C3AED] to-[#A855F7] rounded-lg hover:-translate-y-0.5 hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-200"
+                className="group w-full flex items-center gap-3 p-4 bg-gradient-to-br from-[#7C3AED] to-[#A855F7] rounded-xl border border-white/10 hover:border-white/30 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-purple-500/40 transition-all duration-200"
               >
-                <div className="flex-1 text-left">
-                  <UalaBisLogo className="h-8 w-auto" />
-                  <div className="text-white/80 text-sm font-medium mt-1">QR o link de pago Ualá</div>
+                <div className="bg-white rounded-lg p-2 shrink-0 shadow-sm flex items-center justify-center h-[56px] w-[56px]">
+                  <UalaBisLogo className="h-7 w-auto" />
                 </div>
+                <div className="flex-1 text-left min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-white font-bold text-base leading-tight">Ualá Bis</span>
+                    <span className="text-[9px] uppercase tracking-wider bg-white/20 text-white px-1.5 py-0.5 rounded font-bold">QR / Link</span>
+                  </div>
+                  <div className="text-white/85 text-xs font-medium mt-1 leading-snug">
+                    Pagá con QR o link desde tu app Ualá. Confirmación manual.
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-2 text-white/70 text-[10px] font-medium">
+                    <ShieldCheck className="w-3 h-3" /> Pago verificado por el equipo
+                  </div>
+                </div>
+                <ExternalLink className="w-4 h-4 text-white/70 ml-1 shrink-0 group-hover:translate-x-0.5 transition-transform" />
               </button>
 
               {/* PayPal */}
               <button
                 onClick={() => setStep("paypal-buttons")}
-                className="w-full flex items-center p-4 bg-[#003087] rounded-lg hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-900/40 transition-all duration-200"
+                className="group w-full flex items-center gap-3 p-4 bg-[#003087] rounded-xl border border-white/10 hover:border-white/30 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-blue-900/50 transition-all duration-200"
               >
-                <div className="flex-1 text-left">
-                  <PaypalLogoWhite className="h-8 w-auto" />
-                  <div className="text-white/80 text-sm font-medium mt-1">Pagá en USD desde cualquier país</div>
+                <div className="bg-white rounded-lg p-2 shrink-0 shadow-sm flex items-center justify-center h-[56px] w-[56px]">
+                  <PaypalLogoWhite className="h-8 w-auto [&_text]:fill-[#003087] [&_circle:first-child]:fill-[#003087]/10 [&_circle:nth-child(2)]:fill-[#003087]" />
                 </div>
+                <div className="flex-1 text-left min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-white font-bold text-base leading-tight">PayPal</span>
+                    <span className="text-[9px] uppercase tracking-wider bg-[#FFC439] text-[#003087] px-1.5 py-0.5 rounded font-black">Internacional</span>
+                  </div>
+                  <div className="text-white/85 text-xs font-medium mt-1 leading-snug">
+                    Pagá en USD desde cualquier país con tu cuenta PayPal o tarjeta
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-2 text-white/70 text-[10px] font-medium">
+                    <ShieldCheck className="w-3 h-3" /> Protección al comprador PayPal
+                  </div>
+                </div>
+                <ExternalLink className="w-4 h-4 text-white/70 ml-1 shrink-0 group-hover:translate-x-0.5 transition-transform" />
               </button>
+
+              {/* Trust signals */}
+              <div className="flex items-center justify-center gap-4 mt-3 pt-3 border-t border-white/5">
+                <div className="flex items-center gap-1.5 text-white/50 text-[11px] font-medium">
+                  <Lock className="w-3 h-3" /> Pago 100% seguro
+                </div>
+                <div className="w-px h-3 bg-white/10" />
+                <div className="flex items-center gap-1.5 text-white/50 text-[11px] font-medium">
+                  <ShieldCheck className="w-3 h-3" /> SSL encriptado
+                </div>
+                <div className="w-px h-3 bg-white/10" />
+                <div className="flex items-center gap-1.5 text-white/50 text-[11px] font-medium">
+                  <CheckCircle2 className="w-3 h-3" /> Entrega inmediata
+                </div>
+              </div>
             </div>
           </div>
         )}
