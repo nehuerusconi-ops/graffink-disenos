@@ -133,7 +133,7 @@ export async function sendWebhookSignatureAlertEmail(opts: {
 
         <tr>
           <td style="background:#0a0a0a;border-radius:0 0 12px 12px;padding:20px 40px;border-top:1px solid #1a1a1a;text-align:center;">
-            <p style="color:#444;font-size:12px;margin:0;">DTF LAB — Alerta automática del sistema</p>
+            <p style="color:#444;font-size:12px;margin:0;">GraffInk Diseños — Alerta automática del sistema</p>
             <p style="color:#333;font-size:11px;margin:6px 0 0 0;">https://${DOMAIN}</p>
           </td>
         </tr>
@@ -146,9 +146,9 @@ export async function sendWebhookSignatureAlertEmail(opts: {
 
   try {
     await transporter.sendMail({
-      from: `"DTF LAB Sistema" <${GMAIL_USER}>`,
+      from: `"GraffInk Diseños Sistema" <${GMAIL_USER}>`,
       to: GMAIL_USER,
-      subject: `🚨 DTF LAB — Firma inválida en webhook de Mercado Pago (IP: ${opts.ip})`,
+      subject: `🚨 GraffInk Diseños — Firma inválida en webhook de Mercado Pago (IP: ${opts.ip})`,
       html,
     });
     logger.info(
@@ -182,7 +182,7 @@ export async function sendOrderConfirmationEmail(order: Order): Promise<void> {
             <table width="100%" cellpadding="0" cellspacing="0">
               <tr>
                 <td>
-                  <img src="https://${DOMAIN}/logo.png" alt="DTF LAB" width="160" height="40" style="display:block; border:0;" />
+                  <img src="https://${DOMAIN}/logo.png" alt="GraffInk Diseños" width="160" height="40" style="display:block; border:0;" />
                 </td>
                 <td align="right">
                   <div style="color:#3b82f6; font-size:13px; font-weight:700; letter-spacing:1px;">FACTURA N°</div>
@@ -249,7 +249,7 @@ export async function sendOrderConfirmationEmail(order: Order): Promise<void> {
         <!-- Footer -->
         <tr>
           <td style="background:#0a0a0a; border-radius:0 0 12px 12px; padding:20px 40px; border-top:1px solid #1a1a1a; text-align:center;">
-            <p style="color:#444; font-size:12px; margin:0;">DTF LAB — Diseños de alta calidad para impresión DTF</p>
+            <p style="color:#444; font-size:12px; margin:0;">GraffInk Diseños — Diseños de alta calidad para impresión DTF</p>
             <p style="color:#333; font-size:11px; margin:6px 0 0 0;">https://${DOMAIN}</p>
           </td>
         </tr>
@@ -275,9 +275,9 @@ export async function sendOrderConfirmationEmail(order: Order): Promise<void> {
 
   try {
     await transporter.sendMail({
-      from: `"DTF LAB" <${GMAIL_USER}>`,
+      from: `"GraffInk Diseños" <${GMAIL_USER}>`,
       to: order.customerEmail,
-      subject: `✅ DTF LAB — Factura N° ${invoiceStr} confirmada`,
+      subject: `✅ GraffInk Diseños — Factura N° ${invoiceStr} confirmada`,
       html,
       attachments: attachments.length > 0 ? attachments : undefined,
     });

@@ -19,11 +19,23 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
+const CART_STORAGE_KEY = "graffink_cart";
+const LEGACY_CART_STORAGE_KEY = "dreamstorm_cart";
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>(() => {
     try {
-      const localData = localStorage.getItem("dreamstorm_cart");
-      return localData ? JSON.parse(localData) : [];
+      const current = localStorage.getItem(CART_STORAGE_KEY);
+      if (current) return JSON.parse(current);
+      // One-time migration from the previous brand's cart key so in-flight
+      // carts are not lost when the brand was renamed to GraffInk Diseños.
+      const legacy = localStorage.getItem(LEGACY_CART_STORAGE_KEY);
+      if (legacy) {
+        localStorage.setItem(CART_STORAGE_KEY, legacy);
+        localStorage.removeItem(LEGACY_CART_STORAGE_KEY);
+        return JSON.parse(legacy);
+      }
+      return [];
     } catch {
       return [];
     }
@@ -32,7 +44,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [isCartOpen, setIsCartOpen] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem("dreamstorm_cart", JSON.stringify(items));
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
   }, [items]);
 
   const addItem = (product: Product) => {

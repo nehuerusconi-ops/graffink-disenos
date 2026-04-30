@@ -19,7 +19,7 @@ export function CustomDesign() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const subject = encodeURIComponent("Consulta diseño personalizado — DTF LAB");
+    const subject = encodeURIComponent("Consulta diseño personalizado — GraffInk Diseños");
     const body = encodeURIComponent(
       `Nombre: ${form.name}\nEmail: ${form.email}\n\nDescripción del diseño:\n${form.description}`
     );

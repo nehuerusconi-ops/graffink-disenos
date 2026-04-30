@@ -57,9 +57,9 @@ export function Header() {
         <button
           onClick={() => scrollTo("hero")}
           className="flex items-center"
-          aria-label="DTF LAB - Inicio"
+          aria-label="GraffInk Diseños - Inicio"
         >
-          <img src="/logo.png" alt="DTF LAB" className="h-12 w-auto" />
+          <img src="/logo.png" alt="GraffInk Diseños" className="h-12 w-auto" />
         </button>
 
         {/* Desktop Nav */}

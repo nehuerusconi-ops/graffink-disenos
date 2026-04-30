@@ -46,7 +46,7 @@ function AdminContent() {
             onClick={() => navigate("/")}
             className="flex items-center gap-3 hover-elevate active-elevate-2 px-2 py-1 rounded-sm"
           >
-            <img src="/logo.png" alt="DTF LAB" className="h-10" />
+            <img src="/logo.png" alt="GraffInk Diseños" className="h-10" />
             <span className="text-xs font-bold uppercase tracking-widest text-white/50">
               Panel
             </span>

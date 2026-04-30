@@ -130,7 +130,7 @@ function printInvoice(order: Order) {
           <button onclick="window.print()">Imprimir / Guardar PDF</button>
         </div>
         <div class="head">
-          <div class="brand">DTF LAB<small>Diseños DTF</small></div>
+          <div class="brand">GraffInk Diseños<small>Diseños DTF</small></div>
           <div class="meta">
             <strong>Factura N° ${formatInvoiceNumber(order.invoiceNumber)}</strong><br/>
             ${formatDate(order.createdAt)}<br/>
@@ -165,7 +165,7 @@ function printInvoice(order: Order) {
           <div class="line grand"><span>TOTAL</span><span>$${order.total.toLocaleString("es-AR")} ARS</span></div>
         </div>
         <div class="footer">
-          Gracias por tu compra · DTF LAB · Archivos digitales DTF de alta calidad
+          Gracias por tu compra · GraffInk Diseños · Archivos digitales DTF de alta calidad
         </div>
       </body>
     </html>

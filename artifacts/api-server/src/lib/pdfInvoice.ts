@@ -68,8 +68,8 @@ export function buildInvoicePdf(order: Order): Promise<Buffer> {
         size: "A4",
         margin: PAGE_MARGIN,
         info: {
-          Title: `Comprobante DTF LAB N° ${String(order.invoiceNumber).padStart(6, "0")}`,
-          Author: "DTF LAB",
+          Title: `Comprobante GraffInk Diseños N° ${String(order.invoiceNumber).padStart(6, "0")}`,
+          Author: "GraffInk Diseños",
           Subject: "Comprobante de venta (no válido como factura fiscal)",
         },
       });
@@ -118,7 +118,7 @@ export function buildInvoicePdf(order: Order): Promise<Buffer> {
         .font("Helvetica-Bold")
         .fontSize(13)
         .fillColor("#000")
-        .text("DTF LAB", leftX + 10, headerTop + 56, { width: colW - 20 });
+        .text("GraffInk Diseños", leftX + 10, headerTop + 56, { width: colW - 20 });
       doc
         .font("Helvetica")
         .fontSize(8)
@@ -362,7 +362,7 @@ export function buildInvoicePdf(order: Order): Promise<Buffer> {
         .fontSize(8)
         .fillColor("#000")
         .text(
-          `Generado automáticamente el ${fmtDate(new Date())} — DTF LAB`,
+          `Generado automáticamente el ${fmtDate(new Date())} — GraffInk Diseños`,
           PAGE_MARGIN,
           discTop + 60,
           { width: CONTENT_W, align: "center" },

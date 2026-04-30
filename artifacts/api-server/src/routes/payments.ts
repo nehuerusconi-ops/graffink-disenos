@@ -504,7 +504,7 @@ router.post("/payments/paypal/create-order", async (req, res): Promise<void> => 
         purchase_units: [
           {
             reference_id: order.id,
-            description: `DTF LAB — ${orderItems.length} diseño${orderItems.length > 1 ? "s" : ""}`,
+            description: `GraffInk Diseños — ${orderItems.length} diseño${orderItems.length > 1 ? "s" : ""}`,
             amount: {
               currency_code: "USD",
               value: usdAmount,
