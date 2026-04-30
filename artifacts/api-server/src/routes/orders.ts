@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, sql, and, gte } from "drizzle-orm";
+import { eq, desc, sql, and, gte, lte, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { db, ordersTable } from "@workspace/db";
 import type { OrderItem } from "@workspace/db";
@@ -91,23 +91,78 @@ function csvEscape(value: string): string {
   return v;
 }
 
-const ExportOrdersQuery = z.object({
-  paymentMethod: z.enum(["mercadopago", "transferencia", "paypal"]).optional(),
-});
+// `from` / `to` accept ISO date (YYYY-MM-DD) or full ISO datetime so admins
+// can either pick a calendar day in the panel or paste a precise timestamp
+// for a tighter slice. Both are inclusive on the day boundary: `from` snaps
+// to start-of-day UTC and `to` snaps to end-of-day UTC, matching the way
+// accountants think about a "from / to" range in a quarterly report.
+const isoDateOrDateTime = z
+  .string()
+  .refine(
+    (s) => /^\d{4}-\d{2}-\d{2}(T.*)?$/.test(s) && !Number.isNaN(Date.parse(s)),
+    { message: "Fecha inválida (formato esperado YYYY-MM-DD)" },
+  );
+
+const ExportOrdersQuery = z
+  .object({
+    paymentMethod: z
+      .enum(["mercadopago", "transferencia", "paypal"], {
+        errorMap: () => ({ message: "paymentMethod inválido" }),
+      })
+      .optional(),
+    from: isoDateOrDateTime.optional(),
+    to: isoDateOrDateTime.optional(),
+  })
+  .refine(
+    (q) => {
+      if (!q.from || !q.to) return true;
+      return Date.parse(q.from) <= Date.parse(q.to);
+    },
+    { message: "El rango de fechas es inválido (desde > hasta)", path: ["to"] },
+  );
+
+function parseFromBoundary(value: string): Date {
+  // Date-only input: anchor to start-of-day UTC so the range is inclusive
+  // of the chosen day regardless of the admin's local timezone.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return new Date(`${value}T00:00:00.000Z`);
+  }
+  return new Date(value);
+}
+
+function parseToBoundary(value: string): Date {
+  // Date-only input: anchor to end-of-day UTC so a range like
+  // 2026-01-01..2026-01-31 includes every order placed on Jan 31.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return new Date(`${value}T23:59:59.999Z`);
+  }
+  return new Date(value);
+}
 
 router.get("/orders/export", requireAdmin, async (req, res): Promise<void> => {
   const parsed = ExportOrdersQuery.safeParse(req.query);
   if (!parsed.success) {
-    res.status(400).json({ error: "paymentMethod inválido" });
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Parámetros inválidos" });
     return;
   }
-  const { paymentMethod } = parsed.data;
+  const { paymentMethod, from, to } = parsed.data;
 
-  const rows = paymentMethod
+  const conditions: SQL[] = [];
+  if (paymentMethod) {
+    conditions.push(eq(ordersTable.paymentMethod, paymentMethod));
+  }
+  if (from) {
+    conditions.push(gte(ordersTable.createdAt, parseFromBoundary(from)));
+  }
+  if (to) {
+    conditions.push(lte(ordersTable.createdAt, parseToBoundary(to)));
+  }
+
+  const rows = conditions.length > 0
     ? await db
         .select()
         .from(ordersTable)
-        .where(eq(ordersTable.paymentMethod, paymentMethod))
+        .where(conditions.length === 1 ? conditions[0]! : and(...conditions))
         .orderBy(desc(ordersTable.createdAt))
     : await db.select().from(ordersTable).orderBy(desc(ordersTable.createdAt));
 
@@ -158,9 +213,22 @@ router.get("/orders/export", requireAdmin, async (req, res): Promise<void> => {
   // BOM so Excel auto-detects UTF-8 (admins open these in Excel for audits).
   const body = "\uFEFF" + lines.join("\r\n") + "\r\n";
 
-  const today = new Date().toISOString().slice(0, 10);
-  const suffix = paymentMethod ? `-${paymentMethod}` : "";
-  const filename = `ordenes${suffix}-${today}.csv`;
+  // Filename encodes the active filters so an admin downloading several
+  // ranges side by side can tell them apart without renaming files.
+  // Examples:
+  //   ordenes-2026-04-30.csv                       (no filter — today's snapshot)
+  //   ordenes-paypal-2026-01-01_2026-01-31.csv     (method + range)
+  //   ordenes-2026-01-01_2026-01-31.csv            (range only)
+  const methodSuffix = paymentMethod ? `-${paymentMethod}` : "";
+  let dateSuffix: string;
+  if (from || to) {
+    const fromLabel = from ? from.slice(0, 10) : "inicio";
+    const toLabel = to ? to.slice(0, 10) : "hoy";
+    dateSuffix = `${fromLabel}_${toLabel}`;
+  } else {
+    dateSuffix = new Date().toISOString().slice(0, 10);
+  }
+  const filename = `ordenes${methodSuffix}-${dateSuffix}.csv`;
 
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);

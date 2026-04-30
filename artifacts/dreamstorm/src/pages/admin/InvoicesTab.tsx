@@ -36,12 +36,22 @@ function downloadInvoicePdf(orderId: string): void {
 
 type PaymentMethodFilter = "all" | "paypal" | "mercadopago" | "transferencia";
 
-function downloadOrdersCsv(method: PaymentMethodFilter): void {
+function downloadOrdersCsv(
+  method: PaymentMethodFilter,
+  from: string,
+  to: string,
+): void {
   // Clerk session cookie is sent automatically (same origin); the server's
   // requireAdmin middleware validates the user. The query string keeps the
-  // server-side filter in sync with what the admin sees in the table.
-  const qs = method === "all" ? "" : `?paymentMethod=${method}`;
-  window.open(`${BASE}/api/orders/export${qs}`, "_blank");
+  // server-side filter in sync with what the admin sees in the table — the
+  // date range is applied server-side so the CSV exactly mirrors the
+  // accounting period the admin asked for.
+  const params = new URLSearchParams();
+  if (method !== "all") params.set("paymentMethod", method);
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  const qs = params.toString();
+  window.open(`${BASE}/api/orders/export${qs ? `?${qs}` : ""}`, "_blank");
 }
 
 const PAYMENT_LABELS: Record<string, string> = {
@@ -229,14 +239,30 @@ export function InvoicesTab() {
   const { data: orders, isLoading } = useListOrders<Order[]>();
   const [search, setSearch] = useState("");
   const [methodFilter, setMethodFilter] = useState<PaymentMethodFilter>("all");
+  // Date range for the CSV export. Both fields are optional — the admin can
+  // leave either one blank to mean "open ended". The same range is also
+  // applied client-side to the table so what the admin sees matches what
+  // the CSV will contain.
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const rangeInvalid = Boolean(fromDate && toDate && fromDate > toDate);
   const [selected, setSelected] = useState<Order | null>(null);
 
   const filtered = useMemo(() => {
     if (!orders) return [];
     const q = search.trim().toLowerCase();
+    // Match the server: dates snap to UTC day boundaries so the local table
+    // preview lines up exactly with what the export endpoint will return.
+    const fromMs = fromDate ? Date.parse(`${fromDate}T00:00:00.000Z`) : null;
+    const toMs = toDate ? Date.parse(`${toDate}T23:59:59.999Z`) : null;
     return orders.filter((o) => {
       if (methodFilter !== "all" && o.paymentMethod !== methodFilter) {
         return false;
+      }
+      if (fromMs !== null || toMs !== null) {
+        const created = Date.parse(o.createdAt);
+        if (fromMs !== null && created < fromMs) return false;
+        if (toMs !== null && created > toMs) return false;
       }
       if (!q) return true;
       return (
@@ -246,7 +272,7 @@ export function InvoicesTab() {
         o.id.includes(q)
       );
     });
-  }, [orders, search, methodFilter]);
+  }, [orders, search, methodFilter, fromDate, toDate]);
 
   if (isLoading) {
     return (
@@ -274,7 +300,7 @@ export function InvoicesTab() {
             Listado completo de ventas con factura imprimible.
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 w-full lg:w-auto lg:items-end">
           <Select
             value={methodFilter}
             onValueChange={(v) => setMethodFilter(v as PaymentMethodFilter)}
@@ -292,6 +318,53 @@ export function InvoicesTab() {
               <SelectItem value="transferencia">Transferencia bancaria</SelectItem>
             </SelectContent>
           </Select>
+          <div className="flex flex-col w-full sm:w-auto">
+            <label
+              htmlFor="invoices-from-date"
+              className="text-[10px] uppercase tracking-widest text-white/40 mb-1"
+            >
+              Desde
+            </label>
+            <Input
+              id="invoices-from-date"
+              type="date"
+              value={fromDate}
+              max={toDate || undefined}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="w-full sm:w-40"
+              aria-label="Fecha desde"
+            />
+          </div>
+          <div className="flex flex-col w-full sm:w-auto">
+            <label
+              htmlFor="invoices-to-date"
+              className="text-[10px] uppercase tracking-widest text-white/40 mb-1"
+            >
+              Hasta
+            </label>
+            <Input
+              id="invoices-to-date"
+              type="date"
+              value={toDate}
+              min={fromDate || undefined}
+              onChange={(e) => setToDate(e.target.value)}
+              className="w-full sm:w-40"
+              aria-label="Fecha hasta"
+            />
+          </div>
+          {(fromDate || toDate) && (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setFromDate("");
+                setToDate("");
+              }}
+              className="text-white/60 hover:text-white whitespace-nowrap"
+              title="Limpiar rango de fechas"
+            >
+              Limpiar fechas
+            </Button>
+          )}
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
             <Input
@@ -303,14 +376,24 @@ export function InvoicesTab() {
           </div>
           <Button
             variant="outline"
-            onClick={() => downloadOrdersCsv(methodFilter)}
+            onClick={() => downloadOrdersCsv(methodFilter, fromDate, toDate)}
+            disabled={rangeInvalid}
             className="border-white/10 hover:bg-white/5 whitespace-nowrap"
-            title="Descargar CSV con las órdenes filtradas"
+            title={
+              rangeInvalid
+                ? "El rango de fechas es inválido (desde > hasta)"
+                : "Descargar CSV con las órdenes filtradas"
+            }
           >
             <FileSpreadsheet className="h-4 w-4 mr-2" /> Exportar CSV
           </Button>
         </div>
       </div>
+      {rangeInvalid && (
+        <p className="text-xs text-red-400">
+          El rango de fechas es inválido: la fecha "desde" es posterior a "hasta".
+        </p>
+      )}
 
       {filtered.length === 0 ? (
         <div className="text-center py-24 border border-dashed border-white/10 rounded-sm">
