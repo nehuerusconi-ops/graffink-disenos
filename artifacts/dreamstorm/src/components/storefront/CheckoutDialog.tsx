@@ -4,16 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCart } from "./CartContext";
-import { CheckCircle2, Loader2, ExternalLink, ArrowLeft, Mail, ShieldCheck, Lock } from "lucide-react";
+import { CheckCircle2, Loader2, ExternalLink, ArrowLeft, Mail, ShieldCheck, Lock, Landmark, Copy } from "lucide-react";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
-import { MercadoPagoLogo, UalaBisLogo, PaypalLogoWhite } from "./PaymentLogos";
+import { MercadoPagoLogo, PaypalLogoWhite } from "./PaymentLogos";
 import { toast } from "sonner";
 import { isAcceptableDniInput, dniForPayload as buildDniForPayload } from "./dniInput";
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 const VITE_PAYPAL_CLIENT_ID = import.meta.env.VITE_PAYPAL_CLIENT_ID as string | undefined;
 
-type Step = "details" | "payment" | "paypal-buttons" | "processing" | "success" | "uala-instructions";
+type Step = "details" | "payment" | "paypal-buttons" | "processing" | "success" | "transferencia-instructions";
 
 interface ConfirmedInfo {
   invoiceNumber?: number;
@@ -275,27 +275,27 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                 <ExternalLink className="w-4 h-4 text-white/70 ml-1 shrink-0 group-hover:translate-x-0.5 transition-transform" />
               </button>
 
-              {/* Ualá Bis */}
+              {/* Transferencia bancaria */}
               <button
-                onClick={() => setStep("uala-instructions")}
-                className="group w-full flex items-center gap-3 p-4 bg-gradient-to-br from-[#7C3AED] to-[#A855F7] rounded-xl border border-white/10 hover:border-white/30 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-purple-500/40 transition-all duration-200"
+                onClick={() => setStep("transferencia-instructions")}
+                className="group w-full flex items-center gap-3 p-4 bg-gradient-to-br from-emerald-700 to-emerald-600 rounded-xl border border-white/10 hover:border-white/30 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-emerald-500/40 transition-all duration-200"
               >
                 <div className="bg-white rounded-lg p-2 shrink-0 shadow-sm flex items-center justify-center h-[56px] w-[56px]">
-                  <UalaBisLogo className="h-7 w-auto" />
+                  <Landmark className="h-8 w-8 text-emerald-700" />
                 </div>
                 <div className="flex-1 text-left min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-white font-bold text-base leading-tight">Ualá Bis</span>
-                    <span className="text-[9px] uppercase tracking-wider bg-white/20 text-white px-1.5 py-0.5 rounded font-bold">QR / Link</span>
+                    <span className="text-white font-bold text-base leading-tight">Transferencia bancaria</span>
+                    <span className="text-[9px] uppercase tracking-wider bg-white/20 text-white px-1.5 py-0.5 rounded font-bold">CVU</span>
                   </div>
                   <div className="text-white/85 text-xs font-medium mt-1 leading-snug">
-                    Pagá con QR o link desde tu app Ualá. Confirmación manual.
+                    Transferí desde cualquier banco o billetera virtual. Confirmación manual.
                   </div>
                   <div className="flex items-center gap-1.5 mt-2 text-white/70 text-[10px] font-medium">
                     <ShieldCheck className="w-3 h-3" /> Pago verificado por el equipo
                   </div>
                 </div>
-                <ExternalLink className="w-4 h-4 text-white/70 ml-1 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                <ArrowLeft className="w-4 h-4 text-white/70 ml-1 shrink-0 rotate-180 group-hover:translate-x-0.5 transition-transform" />
               </button>
 
               {/* PayPal */}
@@ -414,52 +414,12 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           </div>
         )}
 
-        {/* ── Step: Ualá instructions ── */}
-        {step === "uala-instructions" && (
-          <div className="flex flex-col">
-            <div className="p-6 border-b border-white/10 bg-gradient-to-r from-[#7C3AED]/20 to-[#A855F7]/10">
-              <DialogHeader>
-                <DialogTitle className="text-2xl font-black uppercase tracking-tight text-white mb-1">Pagar con Ualá Bis</DialogTitle>
-                <DialogDescription className="text-white/60 font-medium">
-                  Total: <span className="font-mono text-white font-bold">${totalPrice.toLocaleString("es-AR")} ARS</span>
-                </DialogDescription>
-              </DialogHeader>
-            </div>
-            <div className="p-6 flex flex-col gap-4">
-              <button type="button" onClick={() => setStep("payment")} className="text-xs text-white/50 hover:text-white flex items-center gap-1">
-                <ArrowLeft className="w-3 h-3" /> Volver
-              </button>
-              <div className="bg-white/5 border border-white/10 rounded-lg p-4 text-sm text-white/80 space-y-3">
-                <p className="font-bold text-white">Cómo pagar:</p>
-                <ol className="list-decimal list-inside space-y-2 text-white/70">
-                  <li>Hacé clic en el botón de abajo para ir al link de cobro de Ualá Bis.</li>
-                  <li>Completá el pago por <strong className="text-white">${totalPrice.toLocaleString("es-AR")} ARS</strong>.</li>
-                  <li>Envianos el comprobante a nuestro email junto con tu pedido.</li>
-                </ol>
-                <div className="flex items-start gap-2 mt-3 pt-3 border-t border-white/10">
-                  <Mail className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
-                  <span className="text-white/60 text-xs">Enviá tu comprobante al email de contacto que figura en el pie de la página para que procesemos tu pedido manualmente.</span>
-                </div>
-              </div>
-              <Button
-                size="lg"
-                className="w-full h-12 bg-gradient-to-r from-[#7C3AED] to-[#A855F7] text-white font-bold hover:opacity-90"
-                onClick={async () => {
-                  try {
-                    const r = await fetch(`${BASE}/api/payments/uala/link`, { method: "POST" });
-                    const d = (await r.json()) as { url?: string; error?: string };
-                    if (d.url) window.open(d.url, "_blank");
-                    else toast.error("Link de Ualá no disponible");
-                  } catch {
-                    toast.error("Error al obtener el link de pago");
-                  }
-                }}
-              >
-                <ExternalLink className="w-4 h-4 mr-2" />
-                Ir al link de pago Ualá
-              </Button>
-            </div>
-          </div>
+        {/* ── Step: Transferencia bancaria instructions ── */}
+        {step === "transferencia-instructions" && (
+          <TransferenciaStep
+            totalPrice={totalPrice}
+            onBack={() => setStep("payment")}
+          />
         )}
 
         {/* ── Step: processing ── */}
@@ -499,5 +459,193 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
 
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Bank transfer (Transferencia bancaria) step
+// ---------------------------------------------------------------------------
+// Fetches the CVU + holder from the server (so the operator can change the
+// account in one place without redeploying the frontend) and renders a
+// copy-friendly screen. The buyer transfers the total from their own bank
+// app and then sends the receipt to the store email; the admin confirms
+// the order manually from the admin panel.
+
+interface TransferenciaInfo {
+  cvu: string;
+  holder: string;
+}
+
+function TransferenciaStep({
+  totalPrice,
+  onBack,
+}: {
+  totalPrice: number;
+  onBack: () => void;
+}) {
+  const [info, setInfo] = useState<TransferenciaInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch(`${BASE}/api/payments/transferencia/info`, {
+          method: "POST",
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const d = (await r.json()) as TransferenciaInfo;
+        if (!cancelled) {
+          setInfo(d);
+          setLoading(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setError("No pudimos cargar los datos de la cuenta. Reintentá.");
+          setLoading(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function copyToClipboard(value: string, label: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(`${label} copiado`);
+    } catch {
+      toast.error("No se pudo copiar. Copialo a mano.");
+    }
+  }
+
+  return (
+    <div className="flex flex-col">
+      <div className="p-6 border-b border-white/10 bg-gradient-to-r from-emerald-700/20 to-emerald-600/10">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-black uppercase tracking-tight text-white mb-1">
+            Pagar por transferencia
+          </DialogTitle>
+          <DialogDescription className="text-white/60 font-medium">
+            Total a transferir:{" "}
+            <span className="font-mono text-white font-bold">
+              ${totalPrice.toLocaleString("es-AR")} ARS
+            </span>
+          </DialogDescription>
+        </DialogHeader>
+      </div>
+      <div className="p-6 flex flex-col gap-4">
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-xs text-white/50 hover:text-white flex items-center gap-1"
+        >
+          <ArrowLeft className="w-3 h-3" /> Volver
+        </button>
+
+        {loading && (
+          <div className="flex items-center justify-center py-8 text-white/60 text-sm">
+            <Loader2 className="w-5 h-5 animate-spin mr-2" /> Cargando datos…
+          </div>
+        )}
+
+        {error && !loading && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-sm text-red-200">
+            {error}
+          </div>
+        )}
+
+        {info && !loading && (
+          <>
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3">
+              <div>
+                <div className="text-[10px] uppercase tracking-widest text-white/50 font-bold mb-1">
+                  CVU
+                </div>
+                <div className="flex items-stretch gap-2">
+                  <div className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2.5 font-mono text-white text-sm sm:text-base tracking-tight break-all select-all">
+                    {info.cvu}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(info.cvu, "CVU")}
+                    aria-label="Copiar CVU"
+                    className="shrink-0 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg flex items-center gap-1.5 text-xs font-bold transition-colors"
+                  >
+                    <Copy className="w-4 h-4" /> Copiar
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <div className="text-[10px] uppercase tracking-widest text-white/50 font-bold mb-1">
+                  Titular
+                </div>
+                <div className="flex items-stretch gap-2">
+                  <div className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm sm:text-base select-all">
+                    {info.holder}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(info.holder, "Titular")}
+                    aria-label="Copiar nombre del titular"
+                    className="shrink-0 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg flex items-center gap-1.5 text-xs font-bold transition-colors"
+                  >
+                    <Copy className="w-4 h-4" /> Copiar
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <div className="text-[10px] uppercase tracking-widest text-white/50 font-bold mb-1">
+                  Importe
+                </div>
+                <div className="flex items-stretch gap-2">
+                  <div className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2.5 font-mono text-white text-base sm:text-lg font-bold select-all">
+                    ${totalPrice.toLocaleString("es-AR")}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(String(totalPrice), "Importe")}
+                    aria-label="Copiar importe"
+                    className="shrink-0 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg flex items-center gap-1.5 text-xs font-bold transition-colors"
+                  >
+                    <Copy className="w-4 h-4" /> Copiar
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white/5 border border-white/10 rounded-lg p-4 text-sm text-white/80 space-y-2">
+              <p className="font-bold text-white">Cómo pagar:</p>
+              <ol className="list-decimal list-inside space-y-1.5 text-white/70">
+                <li>Abrí tu app de banco o billetera virtual.</li>
+                <li>
+                  Hacé una transferencia al CVU de arriba por{" "}
+                  <strong className="text-white">
+                    ${totalPrice.toLocaleString("es-AR")} ARS
+                  </strong>
+                  .
+                </li>
+                <li>
+                  Mandanos el comprobante por email para que confirmemos tu
+                  pedido y te enviemos los diseños.
+                </li>
+              </ol>
+              <div className="flex items-start gap-2 mt-3 pt-3 border-t border-white/10">
+                <Mail className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <span className="text-white/60 text-xs">
+                  Enviá el comprobante al email de contacto que figura al pie de
+                  la página. Procesamos el pedido manualmente apenas lo
+                  recibimos.
+                </span>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   );
 }

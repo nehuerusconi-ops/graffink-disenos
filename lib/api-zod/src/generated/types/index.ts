@@ -15,7 +15,7 @@ export * from "./createMercadoPagoPreference200";
 export * from "./createPaypalOrder200";
 export * from "./errorResponse";
 export * from "./getOrderInvoice200";
-export * from "./getUalaLink200";
+export * from "./getTransferenciaInfo200";
 export * from "./healthStatus";
 export * from "./order";
 export * from "./orderConfirmationSource";

@@ -39,7 +39,12 @@ const MP_ACCESS_TOKEN = process.env["MERCADOPAGO_ACCESS_TOKEN"] ?? "";
 const MP_WEBHOOK_SECRET = process.env["MERCADOPAGO_WEBHOOK_SECRET"] ?? "";
 const PAYPAL_CLIENT_ID = process.env["PAYPAL_CLIENT_ID"] ?? "";
 const PAYPAL_CLIENT_SECRET = process.env["PAYPAL_CLIENT_SECRET"] ?? "";
-const UALA_PAYMENT_LINK = process.env["UALA_PAYMENT_LINK"] ?? "";
+// Bank transfer (Transferencia bancaria) — manual payment method.
+// CVU + holder displayed to the buyer in the checkout dialog. Hardcoded
+// because the operator (one-person shop) has a single bank account; if
+// they ever switch banks, just edit these two constants.
+const TRANSFERENCIA_CVU = "0000003100035081223734";
+const TRANSFERENCIA_HOLDER = "Nehuen Rusconi";
 
 // ---------------------------------------------------------------------------
 // PayPal environment selection — SAFE BY DEFAULT
@@ -848,15 +853,14 @@ router.post("/payments/paypal/capture-order", async (req, res): Promise<void> =>
 });
 
 // ---------------------------------------------------------------------------
-// Ualá Bis — return payment link
+// Transferencia bancaria — return CVU + holder for manual payment
 // ---------------------------------------------------------------------------
+// The buyer copies the CVU and transfers the order total from their bank
+// app. They send the receipt to the store's email and the admin marks the
+// order as paid manually from the admin panel.
 
-router.post("/payments/uala/link", (_req, res): void => {
-  if (!UALA_PAYMENT_LINK) {
-    res.status(503).json({ error: "Link de Ualá no configurado" });
-    return;
-  }
-  res.json({ url: UALA_PAYMENT_LINK });
+router.post("/payments/transferencia/info", (_req, res): void => {
+  res.json({ cvu: TRANSFERENCIA_CVU, holder: TRANSFERENCIA_HOLDER });
 });
 
 export default router;

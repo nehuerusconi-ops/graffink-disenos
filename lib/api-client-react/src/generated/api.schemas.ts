@@ -116,7 +116,7 @@ export type OrderPaymentMethod =
 
 export const OrderPaymentMethod = {
   mercadopago: "mercadopago",
-  uala: "uala",
+  transferencia: "transferencia",
   paypal: "paypal",
 } as const;
 
@@ -165,7 +165,7 @@ export type OrderInputPaymentMethod =
 
 export const OrderInputPaymentMethod = {
   mercadopago: "mercadopago",
-  uala: "uala",
+  transferencia: "transferencia",
   paypal: "paypal",
 } as const;
 
@@ -252,8 +252,9 @@ export type CapturePaypalOrderBody = {
   orderId: string;
 };
 
-export type GetUalaLink200 = {
-  url: string;
+export type GetTransferenciaInfo200 = {
+  cvu: string;
+  holder: string;
 };
 
 export type GetOrderInvoice200 = {

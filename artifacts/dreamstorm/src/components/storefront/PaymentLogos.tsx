@@ -41,17 +41,6 @@ export function MercadoPagoLogoWhite({ className }: { className?: string }) {
   );
 }
 
-export function UalaBisLogo({ className }: { className?: string }) {
-  return (
-    <img
-      src={`${BASE}/logos/uala.svg`}
-      alt="Ualá Bis"
-      className={className}
-      draggable={false}
-    />
-  );
-}
-
 export function PaypalLogo({ className }: { className?: string }) {
   return (
     <img

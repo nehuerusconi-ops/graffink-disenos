@@ -24,7 +24,7 @@ export const ordersTable = pgTable("orders", {
   total: integer("total").notNull(),
   isPlanchaGrouped: boolean("is_plancha_grouped").notNull().default(false),
   paymentMethod: text("payment_method", {
-    enum: ["mercadopago", "uala", "paypal"],
+    enum: ["mercadopago", "transferencia", "paypal"],
   }).notNull(),
   status: text("status", { enum: ["pending", "paid", "failed", "refunded"] })
     .notNull()

@@ -84,7 +84,7 @@ function isLegacyPlanchaOrder(order: Order): boolean {
 function formatMethod(method: string): string {
   const map: Record<string, string> = {
     mercadopago: "Mercado Pago",
-    uala: "Ualá Bis",
+    transferencia: "Transferencia bancaria",
     paypal: "PayPal",
   };
   return map[method] ?? method;

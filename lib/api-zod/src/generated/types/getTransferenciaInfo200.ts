@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type GetUalaLink200 = {
-  url: string;
+export type GetTransferenciaInfo200 = {
+  cvu: string;
+  holder: string;
 };

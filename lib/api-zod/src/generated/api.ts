@@ -166,7 +166,7 @@ export const ListOrdersResponseItem = zod.object({
   ),
   total: zod.number(),
   isPlanchaGrouped: zod.boolean(),
-  paymentMethod: zod.enum(["mercadopago", "uala", "paypal"]),
+  paymentMethod: zod.enum(["mercadopago", "transferencia", "paypal"]),
   status: zod.enum(["pending", "paid", "failed", "refunded"]),
   confirmationSource: zod
     .enum(["webhook", "manual", "paypal-capture"])
@@ -202,7 +202,7 @@ export const CreateOrderBody = zod.object({
       }),
     )
     .min(1),
-  paymentMethod: zod.enum(["mercadopago", "uala", "paypal"]),
+  paymentMethod: zod.enum(["mercadopago", "transferencia", "paypal"]),
 });
 
 /**
@@ -263,7 +263,7 @@ export const GetOrderResponse = zod.object({
   ),
   total: zod.number(),
   isPlanchaGrouped: zod.boolean(),
-  paymentMethod: zod.enum(["mercadopago", "uala", "paypal"]),
+  paymentMethod: zod.enum(["mercadopago", "transferencia", "paypal"]),
   status: zod.enum(["pending", "paid", "failed", "refunded"]),
   confirmationSource: zod
     .enum(["webhook", "manual", "paypal-capture"])
@@ -405,7 +405,7 @@ export const CapturePaypalOrderResponse = zod.object({
   ),
   total: zod.number(),
   isPlanchaGrouped: zod.boolean(),
-  paymentMethod: zod.enum(["mercadopago", "uala", "paypal"]),
+  paymentMethod: zod.enum(["mercadopago", "transferencia", "paypal"]),
   status: zod.enum(["pending", "paid", "failed", "refunded"]),
   confirmationSource: zod
     .enum(["webhook", "manual", "paypal-capture"])
@@ -420,10 +420,11 @@ export const CapturePaypalOrderResponse = zod.object({
 });
 
 /**
- * @summary Get Ualá Bis payment link for manual payment
+ * @summary Get bank transfer info (CVU + holder) for manual payment
  */
-export const GetUalaLinkResponse = zod.object({
-  url: zod.string(),
+export const GetTransferenciaInfoResponse = zod.object({
+  cvu: zod.string(),
+  holder: zod.string(),
 });
 
 /**

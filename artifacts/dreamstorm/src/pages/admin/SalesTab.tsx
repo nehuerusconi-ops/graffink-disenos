@@ -12,7 +12,7 @@ import {
 
 const PAYMENT_LABELS: Record<string, string> = {
   mercadopago: "Mercado Pago",
-  uala: "Ualá Bis",
+  transferencia: "Transferencia bancaria",
   paypal: "PayPal",
 };
 

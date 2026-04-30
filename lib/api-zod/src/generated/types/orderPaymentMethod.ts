@@ -11,6 +11,6 @@ export type OrderPaymentMethod =
 
 export const OrderPaymentMethod = {
   mercadopago: "mercadopago",
-  uala: "uala",
+  transferencia: "transferencia",
   paypal: "paypal",
 } as const;

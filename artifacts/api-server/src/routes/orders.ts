@@ -62,14 +62,14 @@ router.get("/orders", requireAuth, async (_req, res): Promise<void> => {
 });
 
 // Admin-only: export orders as CSV for end-of-month auditing.
-// Optional ?paymentMethod=paypal|mercadopago|uala filters server-side so the
-// download matches what the admin sees in the panel after using the same
-// quick-filter. Columns include the persisted ARS→USD rate and the USD
-// equivalent for PayPal orders so admins can reconcile gateway statements
-// without opening each order one by one.
+// Optional ?paymentMethod=paypal|mercadopago|transferencia filters
+// server-side so the download matches what the admin sees in the panel
+// after using the same quick-filter. Columns include the persisted
+// ARS→USD rate and the USD equivalent for PayPal orders so admins can
+// reconcile gateway statements without opening each order one by one.
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   mercadopago: "Mercado Pago",
-  uala: "Ualá Bis",
+  transferencia: "Transferencia bancaria",
   paypal: "PayPal",
 };
 
@@ -92,7 +92,7 @@ function csvEscape(value: string): string {
 }
 
 const ExportOrdersQuery = z.object({
-  paymentMethod: z.enum(["mercadopago", "uala", "paypal"]).optional(),
+  paymentMethod: z.enum(["mercadopago", "transferencia", "paypal"]).optional(),
 });
 
 router.get("/orders/export", requireAdmin, async (req, res): Promise<void> => {

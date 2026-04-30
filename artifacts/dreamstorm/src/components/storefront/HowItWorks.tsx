@@ -13,7 +13,7 @@ export function HowItWorks() {
       num: "02",
       icon: <CreditCard className="w-10 h-10 text-primary mb-6" />,
       title: "Pagá online",
-      desc: "Completá el pago de forma segura a través de Mercado Pago, Ualá Bis o PayPal."
+      desc: "Completá el pago de forma segura a través de Mercado Pago, transferencia bancaria o PayPal."
     },
     {
       num: "03",

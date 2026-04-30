@@ -50,8 +50,8 @@ function methodLabel(method: string): string {
   switch (method) {
     case "mercadopago":
       return "Mercado Pago";
-    case "uala":
-      return "Ualá Bis";
+    case "transferencia":
+      return "Transferencia bancaria";
     case "paypal":
       return "PayPal";
     default:

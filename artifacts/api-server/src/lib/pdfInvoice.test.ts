@@ -29,7 +29,7 @@ describe("formatPaypalRateLine", () => {
 
   it.each([
     ["mercadopago", "1200"],
-    ["uala", "1200"],
+    ["transferencia", "1200"],
   ] as const)(
     "returns null for non-PayPal payment method %s",
     (method, rate) => {

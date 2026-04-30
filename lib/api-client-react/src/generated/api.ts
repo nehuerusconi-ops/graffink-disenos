@@ -25,7 +25,7 @@ import type {
   CreatePaypalOrder200,
   ErrorResponse,
   GetOrderInvoice200,
-  GetUalaLink200,
+  GetTransferenciaInfo200,
   HealthStatus,
   Order,
   OrderInput,
@@ -1216,39 +1216,39 @@ export const useCapturePaypalOrder = <
 };
 
 /**
- * @summary Get Ualá Bis payment link for manual payment
+ * @summary Get bank transfer info (CVU + holder) for manual payment
  */
-export const getGetUalaLinkUrl = () => {
-  return `/api/payments/uala/link`;
+export const getGetTransferenciaInfoUrl = () => {
+  return `/api/payments/transferencia/info`;
 };
 
-export const getUalaLink = async (
+export const getTransferenciaInfo = async (
   options?: RequestInit,
-): Promise<GetUalaLink200> => {
-  return customFetch<GetUalaLink200>(getGetUalaLinkUrl(), {
+): Promise<GetTransferenciaInfo200> => {
+  return customFetch<GetTransferenciaInfo200>(getGetTransferenciaInfoUrl(), {
     ...options,
     method: "POST",
   });
 };
 
-export const getGetUalaLinkMutationOptions = <
-  TError = ErrorType<void>,
+export const getGetTransferenciaInfoMutationOptions = <
+  TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof getUalaLink>>,
+    Awaited<ReturnType<typeof getTransferenciaInfo>>,
     TError,
     void,
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
-  Awaited<ReturnType<typeof getUalaLink>>,
+  Awaited<ReturnType<typeof getTransferenciaInfo>>,
   TError,
   void,
   TContext
 > => {
-  const mutationKey = ["getUalaLink"];
+  const mutationKey = ["getTransferenciaInfo"];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
       "mutationKey" in options.mutation &&
@@ -1258,42 +1258,42 @@ export const getGetUalaLinkMutationOptions = <
     : { mutation: { mutationKey }, request: undefined };
 
   const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof getUalaLink>>,
+    Awaited<ReturnType<typeof getTransferenciaInfo>>,
     void
   > = () => {
-    return getUalaLink(requestOptions);
+    return getTransferenciaInfo(requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
 };
 
-export type GetUalaLinkMutationResult = NonNullable<
-  Awaited<ReturnType<typeof getUalaLink>>
+export type GetTransferenciaInfoMutationResult = NonNullable<
+  Awaited<ReturnType<typeof getTransferenciaInfo>>
 >;
 
-export type GetUalaLinkMutationError = ErrorType<void>;
+export type GetTransferenciaInfoMutationError = ErrorType<unknown>;
 
 /**
- * @summary Get Ualá Bis payment link for manual payment
+ * @summary Get bank transfer info (CVU + holder) for manual payment
  */
-export const useGetUalaLink = <
-  TError = ErrorType<void>,
+export const useGetTransferenciaInfo = <
+  TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof getUalaLink>>,
+    Awaited<ReturnType<typeof getTransferenciaInfo>>,
     TError,
     void,
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
-  Awaited<ReturnType<typeof getUalaLink>>,
+  Awaited<ReturnType<typeof getTransferenciaInfo>>,
   TError,
   void,
   TContext
 > => {
-  return useMutation(getGetUalaLinkMutationOptions(options));
+  return useMutation(getGetTransferenciaInfoMutationOptions(options));
 };
 
 /**

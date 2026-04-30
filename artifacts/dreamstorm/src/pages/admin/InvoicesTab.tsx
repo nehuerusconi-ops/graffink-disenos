@@ -34,7 +34,7 @@ function downloadInvoicePdf(orderId: string): void {
   window.open(`${BASE}/api/orders/${orderId}/invoice-pdf`, "_blank");
 }
 
-type PaymentMethodFilter = "all" | "paypal" | "mercadopago" | "uala";
+type PaymentMethodFilter = "all" | "paypal" | "mercadopago" | "transferencia";
 
 function downloadOrdersCsv(method: PaymentMethodFilter): void {
   // Clerk session cookie is sent automatically (same origin); the server's
@@ -46,7 +46,7 @@ function downloadOrdersCsv(method: PaymentMethodFilter): void {
 
 const PAYMENT_LABELS: Record<string, string> = {
   mercadopago: "Mercado Pago",
-  uala: "Ualá Bis",
+  transferencia: "Transferencia bancaria",
   paypal: "PayPal",
 };
 
@@ -289,7 +289,7 @@ export function InvoicesTab() {
               <SelectItem value="all">Todos los métodos</SelectItem>
               <SelectItem value="paypal">PayPal</SelectItem>
               <SelectItem value="mercadopago">Mercado Pago</SelectItem>
-              <SelectItem value="uala">Ualá Bis</SelectItem>
+              <SelectItem value="transferencia">Transferencia bancaria</SelectItem>
             </SelectContent>
           </Select>
           <div className="relative w-full sm:w-72">

@@ -17,7 +17,7 @@ tags:
   - name: orders
     description: Sales orders and invoicing
   - name: payments
-    description: Payment gateway integrations (Mercado Pago, PayPal, Ualá Bis)
+    description: Payment gateway integrations (Mercado Pago, PayPal, Transferencia bancaria)
   - name: settings
     description: Editable app-level settings (e.g. plancha grouping price)
   - name: security
@@ -418,24 +418,24 @@ paths:
         "400":
           description: Mismatch or capture failure
 
-  /payments/uala/link:
+  /payments/transferencia/info:
     post:
-      operationId: getUalaLink
+      operationId: getTransferenciaInfo
       tags: [payments]
-      summary: Get Ualá Bis payment link for manual payment
+      summary: Get bank transfer info (CVU + holder) for manual payment
       responses:
         "200":
-          description: Ualá payment link
+          description: Bank transfer info
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  url:
+                  cvu:
                     type: string
-                required: [url]
-        "503":
-          description: Ualá link not configured
+                  holder:
+                    type: string
+                required: [cvu, holder]
 
   /orders/{id}/invoice:
     get:
@@ -777,7 +777,7 @@ components:
           type: boolean
         paymentMethod:
           type: string
-          enum: [mercadopago, uala, paypal]
+          enum: [mercadopago, transferencia, paypal]
         status:
           type: string
           enum: [pending, paid, failed, refunded]
@@ -827,7 +827,7 @@ components:
             $ref: "#/components/schemas/OrderItem"
         paymentMethod:
           type: string
-          enum: [mercadopago, uala, paypal]
+          enum: [mercadopago, transferencia, paypal]
       required:
         - customerName
         - customerEmail
