@@ -56,7 +56,8 @@ const UALA_PAYMENT_LINK = process.env["UALA_PAYMENT_LINK"] ?? "";
 //   3. Restart the API server.
 type PaypalMode = "live" | "sandbox";
 function resolvePaypalMode(): PaypalMode {
-  const explicit = (process.env["PAYPAL_MODE"] ?? "").trim().toLowerCase();
+  const rawMode = process.env["PAYPAL_MODE"] ?? "";
+  const explicit = rawMode.trim().toLowerCase();
   if (explicit === "live") {
     // Belt-and-suspenders: even with PAYPAL_MODE=live, refuse to actually
     // hit production if the client ID still looks like a sandbox value.
@@ -70,6 +71,25 @@ function resolvePaypalMode(): PaypalMode {
     return "sandbox";
   }
   return "sandbox";
+}
+
+// Log resolved PayPal config at module load so operators can see in workflow
+// logs which mode is active and quickly diagnose typos in PAYPAL_MODE.
+{
+  const rawMode = process.env["PAYPAL_MODE"] ?? "";
+  const idLen = PAYPAL_CLIENT_ID.length;
+  const idPrefix = PAYPAL_CLIENT_ID.slice(0, 4);
+  const resolved = resolvePaypalMode();
+  logger.info(
+    {
+      paypalMode: resolved,
+      paypalModeEnvLength: rawMode.length,
+      paypalModeEnvLower: rawMode.trim().toLowerCase() || "(unset)",
+      paypalClientIdLength: idLen,
+      paypalClientIdPrefix: idLen > 0 ? idPrefix : "(empty)",
+    },
+    "PayPal config resolved at startup",
+  );
 }
 
 // ---------------------------------------------------------------------------
