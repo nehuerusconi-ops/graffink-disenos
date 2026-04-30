@@ -213,6 +213,21 @@ export async function sendOrderConfirmationEmail(order: Order): Promise<void> {
               </tbody>
             </table>
 
+            <!-- Mis Compras callout -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a1628; border:1px solid #1e3a5f; border-radius:8px; margin-bottom:32px;">
+              <tr>
+                <td style="padding:16px 20px;">
+                  <p style="color:#aaa; font-size:13px; margin:0 0 10px 0; line-height:1.5;">
+                    Podés volver a descargar tus diseños en cualquier momento desde nuestra página <strong style="color:#fff;">Mis Compras</strong>.
+                  </p>
+                  <a href="https://${DOMAIN}/mis-compras"
+                     style="display:inline-block; background:transparent; color:#3b82f6; font-weight:700; padding:6px 0; text-decoration:none; font-size:13px; border-bottom:1px solid #3b82f6;">
+                    Ir a Mis Compras →
+                  </a>
+                </td>
+              </tr>
+            </table>
+
             <!-- Summary -->
             <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:32px;">
               <tr>
