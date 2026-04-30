@@ -1,0 +1,138 @@
+---
+product_landing_hero:
+ - title: Integra Checkout Pro y configura una experiencia prediseñada
+ - message: Con esta solución tus clientes compran en tu sitio y pagan en un ambiente de Mercado Pago con sus medios de pago guardados.
+ - product_svg_image: checkout-pro-es
+ - benefit_icon: categories
+ - benefit_title: Integración ágil
+ - benefit_icon: link
+ - benefit_title: Para web, Android y iOS
+ - benefit_icon: edit
+ - benefit_title: Experiencia preconstruida
+ - benefit_icon: sort
+ - benefit_title: Con redirección a Mercado Pago
+ - info: ¿Buscas opciones sin desarrollo? Explora [más soluciones](/developers/es/docs#online-payments).
+---
+
+---
+product_landing_what_it_offers:
+ - title: Qué ofrece
+ - message: Combina distintas funcionalidades para garantizar la seguridad y conversión de las operaciones.
+ - benefit_title: Personalización
+ - benefit_bullet: Financiamiento en cuotas.
+ - benefit_bullet: URL de retorno tras aprobar el pago.
+ - benefit_bullet: Apariencia y estilo del botón de pago.
+ - benefit_bullet: Medios de pago combinables y customizables.
+ - benefit_title: Conversión
+ - benefit_bullet: Cobro ágil con los medios de pago guardados en Mercado Pago.
+ - benefit_bullet: Opción de pagar sin cuenta de Mercado Pago, como usuario invitado.
+ - benefit_bullet: Medios de pago online y offline, como tarjetas y dinero en cuenta.
+ - benefit_bullet: Recuperación de pagos rechazados.
+ - benefit_title: Aprobación de pagos
+ - benefit_bullet: Tecnología 3DS 2.0 para autenticación de operaciones.
+ - benefit_bullet: Herramientas de prevención de fraudes y comprobación de identidad de cliente.
+ - benefit_bullet: Validación de transacciones utilizando datos específicos de cada industria. 
+ - benefit_title: Seguridad ante fraudes
+ - benefit_bullet: Protocolos OWASP y PCI DSS.
+ - benefit_bullet: Verificación de identidad de los compradores.
+ - benefit_bullet: Reconocimiento facial con FaceAuth para ingresar a la cuenta de Mercado Pago.
+---
+
+---
+product_landing_how_works:
+ - title: Cómo funciona
+ - message: El cliente elige el producto o servicio en tu sitio, paga en el entorno seguro de Mercado Pago y regresa a tu sitio o al destino configurado.
+ - sub_title: Proceso de cobro
+ - image: https://http2.mlstatic.com/storage/dx-devsite/docs-assets/custom-upload/2025/3/25/1745607187974-choproes990px.gif
+ - image_text: Simula el procesamiento de pago
+ - image_text_link: /developers/es/live-demo/checkout-pro
+ - list_title: El comprador cierra el carrito de compra en tu sitio y selecciona pagar con Mercado Pago.
+ - list_title: Es redirigido al formulario de cobro, donde decide si avanzar con su cuenta de Mercado Pago o como usuario invitado.
+ - list_title: Puede elegir su medio de pago preferido, ya sea uno guardado en su cuenta o uno nuevo ingresado.
+ - list_title: Una vez que completó la compra, es redireccionado a tu sitio web o al destino configurado.
+ - button_description: Cómo integrar
+ - button_link: /developers/es/docs/checkout-pro/create-application
+---
+
+---
+product_landing_what_differentiates:
+ - title: Qué lo diferencia
+ - message: Compara nuestros checkouts y elige el que mejor se adapte a tu negocio. Consulta las [tarifas](/developers/es/support/37740).
+ - highlight_text: Estás aquí
+ - column_product_svg_image: checkout-pro-es
+ - column_product: Checkout Pro
+ - column_button_text: Cómo integrar
+ - column_button_link: /developers/es/docs/checkout-pro/create-application
+ - column_product_svg_image: checkout-api-es
+ - column_product: Checkout API
+ - column_button_text: Ir al resumen
+ - column_button_link: /developers/es/docs/checkout-api-payments/overview
+ - column_product_svg_image: checkout-bricks-es
+ - column_product: Checkout Bricks
+ - column_button_text: Ir al resumen
+ - column_button_link: /developers/es/docs/checkout-bricks/landing
+ - line_text: Esfuerzo de integración
+ - line_type: dots
+ - line_values: 2|5|3
+ - line_text: Nivel de personalización
+ - line_type: dots
+ - line_values: 2|5|3
+ - line_text: Diseño listo para configurar
+ - line_type: check
+ - line_values: true|false|true
+ - line_text: Experiencia de cobro 
+ - line_type: text
+ - line_values: En Mercado Pago|En tu sitio|En tu sitio
+ - line_text: Pagos recurrentes
+ - line_type: check
+ - line_values: false|true|true
+ - line_text: Medios de pago
+ - line_type: text
+ - line_values: Tarjeta de crédito o débito, Rapipago, Pago Fácil, Cuenta Mercado Pago y Cuotas sin Tarjeta|Tarjeta de crédito o débito, Rapipago, Pago Fácil, Cuenta Mercado Pago y Cuotas sin Tarjeta|Tarjeta de crédito o débito, Rapipago, Pago Fácil, Cuenta Mercado Pago y Cuotas sin Tarjeta
+ - line_text: Disponibilidad por país
+ - line_type: sites
+ - line_values: all|all|all
+---
+
+---
+product_landing_how_integrate:
+ - title: Cómo integrar
+ - sub_title: Conoce las etapas que deberás seguir para integrar esta solución.
+ - requirement_title: Requisitos previos
+ - requirement_table_title: Cuenta de vendedor
+ - requirement_table_list: Para integrar Checkout Pro, necesitas ingresar a Mercado Pago y [crear una cuenta de vendedor](https://www.mercadopago[FAKER][URL][DOMAIN]/hub/registration/landing).
+ - requirement_table_title: Certificado SSL (Secure Sockets Layer)
+ - requirement_table_list: Permite la navegación segura y la protección de tus datos durante las transferencias de información.
+---
+
+|||column1|||
+---
+product_landing_how_integrate:
+ - list_title: Proceso de integración
+ - list_item: Crear una aplicación.
+ - list_item: Configurar el ambiente de desarrollo.
+ - list_item: Crear y configurar una preferencia de pago.
+ - list_item: Configurar las URLs de retorno.
+ - list_item: Agregar el SDK al frontend e inicializar el checkout.
+ - list_item: Configurar las notificaciones de pago.
+ - list_item: Probar la integración.
+ - list_item: Salir a producción.
+ - button_description: Quiero comenzar a integrar
+ - button_link: /developers/es/docs/checkout-pro/create-application
+---
+|||column2|||
+<div class="mermaid-overview">
+  <pre class="mermaid">
+  flowchart TD
+  A["Ir a Tus integraciones"] --> B["Crear aplicación"]
+  B --> C["Construir el ambiente"]
+  C --> D["Crear preferencias de pago"]
+  D -- Monto, medios de pago, detalles, otros --> F["Configurar las notificaciones"]
+  F -- Webhooks e IPN --> E["Probar la integración"]
+  E -- Pruebas exitosas --> H["Salir a producción"]
+  E -- Errores detectados --> I["Corregir configuración"]
+  I --> H
+  H --> J["Medir calidad"]
+  </pre>
+</div>
+|||
