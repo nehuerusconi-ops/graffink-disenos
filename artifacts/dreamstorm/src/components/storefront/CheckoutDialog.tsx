@@ -190,11 +190,14 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
               {/* Mercado Pago */}
               <button
                 onClick={handleMercadoPago}
-                className="w-full flex items-center p-4 bg-[#009EE3] rounded-lg hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[#009EE3]/30 transition-all duration-200"
+                className="w-full flex items-center gap-3 p-4 bg-[#009EE3] rounded-lg hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[#009EE3]/30 transition-all duration-200"
               >
+                <div className="bg-white rounded-md p-1.5 shrink-0">
+                  <MercadoPagoLogo className="h-10 w-10 object-contain" />
+                </div>
                 <div className="flex-1 text-left">
-                  <MercadoPagoLogoWhite className="h-8 w-auto" />
-                  <div className="text-white/80 text-sm font-medium mt-1">Tarjeta, débito o saldo MP</div>
+                  <div className="text-white font-bold text-base leading-tight">Mercado Pago</div>
+                  <div className="text-white/80 text-sm font-medium mt-0.5">Tarjeta crédito/débito, transferencia bancaria o saldo MP</div>
                 </div>
                 <ExternalLink className="w-4 h-4 text-white/60 ml-2 shrink-0" />
               </button>

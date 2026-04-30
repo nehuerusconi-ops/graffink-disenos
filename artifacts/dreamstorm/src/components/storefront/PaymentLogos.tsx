@@ -8,7 +8,7 @@ const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 export function MercadoPagoLogo({ className }: { className?: string }) {
   return (
     <img
-      src={`${BASE}/logos/mercadopago.svg`}
+      src={`${BASE}/logos/mercadopago.png`}
       alt="Mercado Pago"
       className={className}
       draggable={false}
