@@ -1,99 +1,82 @@
-# Workspace
+# Overview
 
-## Overview
+This project is a pnpm workspace monorepo using TypeScript, designed for an e-commerce platform. It comprises an Express API server and a Vite React storefront. The platform focuses on selling custom design products, supporting product CRUD operations, order management, and secure object storage. A key feature is the "Armar plancha" (grouping designs) functionality, which allows customers to combine multiple designs into a single order with an additive service fee. The system handles various payment methods, including Mercado Pago and PayPal, with robust webhook validation and order confirmation processes, including PDF invoice generation and email notifications. The project aims to provide a comprehensive, localized e-commerce solution with a strong focus on security, administrative control, and user experience.
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+# User Preferences
 
-## Stack
+- The agent should prioritize the use of pnpm for all package management operations within the monorepo.
+- All code should be written in TypeScript, adhering to strict type-checking.
+- The agent should ensure that any database interactions use Drizzle ORM.
+- For API definitions, the agent must generate code from OpenAPI specifications using Orval.
+- When making changes, the agent should confirm with the user before implementing major architectural shifts or external dependency introductions.
+- The agent should provide detailed explanations for complex solutions or significant code changes.
+- The agent should adhere to the existing monorepo structure and not introduce new root-level directories unless explicitly instructed.
+- The agent should be mindful of the production-only nature of the Clerk frontend proxy and ensure development environments do not use it.
+- The agent should respect the current localization (Argentine Spanish, voseo) of the storefront.
+- Any modifications to payment methods or integrations should strictly follow security best practices, especially regarding webhook validation and secret management.
 
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **API framework**: Express 5
-- **Database**: PostgreSQL + Drizzle ORM
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
-- **Auth**: Clerk (`@clerk/express` server, `@clerk/react` client v6)
-- **Object Storage**: Replit App Storage (Google Cloud bucket)
+# System Architecture
 
-## Artifacts
+## Monorepo Structure
+The project is organized as a pnpm workspace monorepo.
+- `artifacts/api-server`: Houses the Express.js API, managing product CRUD, orders, and storage signed URLs. It includes admin endpoints protected by Clerk session authentication.
+- `artifacts/dreamstorm`: Contains the Vite React storefront, localized in Argentine Spanish, featuring routes for the storefront, sign-in/up, and an admin panel with sections for Designs, Earnings, and Billing.
 
-- `artifacts/api-server` — Express API: products CRUD, orders (POST public, GET/stats admin-only), and storage signed URLs. Admin endpoints gated by `requireAuth` middleware that uses Clerk session.
-- `artifacts/dreamstorm` — Vite React storefront in Argentine Spanish (voseo). Routes: `/` storefront, `/sign-in`, `/sign-up`, `/admin` (Clerk-protected admin panel with three tabs: Diseños / Ganancias / Facturación).
+## Technology Stack
+- **Monorepo Tool**: pnpm workspaces
+- **Node.js**: Version 24
+- **TypeScript**: Version 5.9
+- **API Framework**: Express 5
+- **Database**: PostgreSQL with Drizzle ORM
+- **Validation**: Zod (v4) with `drizzle-zod`
+- **API Codegen**: Orval (from OpenAPI spec)
+- **Build Tool**: esbuild (CJS bundle)
+- **Authentication**: Clerk (`@clerk/express` for server, `@clerk/react` v6 for client)
+- **Object Storage**: Replit App Storage (backed by Google Cloud Bucket)
 
-## Key Commands
+## Feature Specifications
+- **Product Management**: Public API for listing products, admin-only endpoints for category management (add/delete, system-flagged categories, automatic filter updates in UI).
+- **Order Processing**: Auto-incrementing invoice numbers, JSONB item snapshots, total in ARS pesos, various payment methods (Mercado Pago, Transferencia, PayPal), and optional customer DNI/CUIT.
+- **Admin Panel**:
+    - **Earnings Tab**: Displays KPIs, 30-day charts, top products, and revenue by method.
+    - **Billing Tab**: Lists orders, provides printable HTML invoices and downloadable PDF comprobantes (Argentine "Factura B/C" style), with date range filters and quick-range buttons.
+    - **Settings Tab**: Allows editing of catalog categories and `plancha_grouping_price` for "Armar plancha" functionality.
+- **Image Uploads**: Admin users can request signed PUT URLs from the API to upload images directly to GCS, with object paths rendered via the API.
+- **Payment Flows**:
+    - **Mercado Pago**: Uses webhooks for payment confirmation, with robust HMAC-SHA256 signature validation and asynchronous processing.
+    - **PayPal**: Handles order creation and capture, with a public endpoint for exchange rate disclosure. Supports live and sandbox modes, configurable via environment variables with safety checks.
+    - **Bank Transfer (Transferencia bancaria)**: Provides hardcoded CVU and holder info for manual transfers, with admin confirmation.
+- **"Armar Plancha" Functionality**:
+    - Cart-level toggle for an additive service fee.
+    - Server-side price calculation and persistence of `is_plancha_grouped`.
+    - Distinct handling for confirmation emails and fulfillment process (e.g., "En preparación" badge for buyers, admin alert email for manual assembly).
+    - Dedicated storefront section for "Plancha armada" products.
+- **Email Notifications**: `sendOrderConfirmation` for buyers (with PDF attachment), BCCs store inbox. `sendPlanchaAssemblyAlertEmail` for admin for grouped orders.
+- **PDF Generation**: Uses PDFKit with `fontkit` for creating paginated PDF invoices with repeated table headers.
+- **Security & Validation**:
+    - DNI/CUIT validation (`isValidDniOrCuit`) implemented on both API and storefront.
+    - Webhook security event logging and cleanup mechanism with configurable retention.
+    - Rate limiting for admin alerts on invalid webhook signatures.
+- **UI/UX**:
+    - Storefront design in Argentine Spanish (voseo).
+    - Consistent header branding ("GraffInk Diseños").
+    - Cart quantity steppers with per-line subtotals and unit prices.
+    - Product details dialog with description and specifications grid.
+    - Public contact email `graffink.design@gmail.com` displayed in footer and `CustomDesign.tsx`.
 
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run test` — run vitest suites across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- `pnpm --filter @workspace/api-server run dev` — run API server locally
+# External Dependencies
 
-## Notes
-
-- The Clerk frontend proxy at `/api/__clerk` is **production-only**; in development the React client must NOT pass `proxyUrl` (it talks to `*.clerk.accounts.dev` directly via the publishable key).
-- Storefront product data is fetched from `GET /api/products` via the generated `useListProducts` hook; the static `PRODUCTS` constant in `src/data/products.ts` is kept only for the `Product`/`Category` types. The `Category` type is now `string` (was a literal union) because categories are admin-editable — the legacy `CATEGORIES` array is kept only as `@deprecated` fallback, real values come from `useListCategories()`.
-- Admin-managed categories: `categories` table (id/name/slug/isSystem/sortOrder/timestamps) is seeded on first server boot with the 7 legacy categories; "Plancha armada" is flagged `isSystem=true`. `GET /api/categories` is **public** (powers storefront filter pills and admin product dropdown); `POST /categories` and `DELETE /categories/:id` are admin-only. DELETE returns **409** when the category is `isSystem` or still has products assigned (server pre-checks both). New categories appear automatically as filter pills in `ProductGrid` (excluding "Plancha armada") and in the admin `ProductsTab` category dropdown — no code change needed to add a category. Admin UI lives in `SettingsTab` → "Categorías del catálogo" card. POST normalizes name (trim, NFD strip accents → lowercase ascii slug, dedupes against existing). The 8 unit tests live in `artifacts/api-server/src/routes/categories.test.ts` and mock only `eq` (not `sql`, because schema indexes use it).
-- Admin uploads call `POST /api/storage/uploads/request-url` (auth-gated) for a signed PUT URL, then upload directly to GCS. Returned `objectPath` (e.g. `/objects/uploads/xxxx`) is rendered through `/api/storage{objectPath}`.
-- Orders: `orders` table has auto-incremented `invoice_number` (`serial`) for facturación, jsonb `items` snapshot, total in ARS pesos (integer), `payment_method` enum (mercadopago | transferencia | paypal), and nullable `customer_dni text` (DNI 7-8 digits or CUIT 11 digits). Checkout collects customer name + email + optional DNI/CUIT then POSTs to `/api/payments/*`. Admin "Ganancias" tab calls `/api/orders/stats` for KPIs + 30-day chart + top products + revenue-by-method. Admin "Facturación" tab lists orders with a printable HTML invoice + a downloadable PDF comprobante (Argentine non-fiscal "Factura B/C" style) for paid orders. The tab also exposes a date range filter (`?from=&to=`) shared by the table preview and the CSV export, plus quick-range buttons (Hoy / Ayer / Esta semana / Este mes / Mes pasado / Este trimestre / Este año) that fill the Desde/Hasta inputs in local time.
-- Transferencia bancaria: `POST /api/payments/transferencia/info` returns the hardcoded CVU + holder shown to the buyer in checkout. The buyer transfers manually from their own bank/wallet, sends the receipt to the store email, and the admin confirms the order from the admin panel (same flow as the deprecated Ualá Bis flow). To change the bank account, edit `TRANSFERENCIA_CVU` / `TRANSFERENCIA_HOLDER` constants in `artifacts/api-server/src/routes/payments.ts`. The legacy `UALA_PAYMENT_LINK` env var is no longer consumed and can be removed from Secrets.
-- Admin tab components live in `artifacts/dreamstorm/src/pages/admin/{ProductsTab,SalesTab,InvoicesTab}.tsx`.
-- PDF invoice: `artifacts/api-server/src/lib/pdfInvoice.ts` builds a paginated PDF (PDFKit) with repeated table header on overflow. Attached to confirmation email and served via `GET /api/orders/:id/invoice-pdf` (admin-only, paid-only). `pdfkit` and `fontkit` are in esbuild externals (build.mjs) because fontkit dynamic-requires `@swc/helpers`.
-- Order confirmation email: when a payment is confirmed (MP webhook, PayPal capture, or admin manual mark-as-paid), `sendOrderConfirmation()` in `artifacts/api-server/src/lib/email.ts` mails the buyer (`to: customerEmail`) AND BCCs the store inbox (`bcc: GMAIL_USER`) so the admin gets a hidden copy of every paid order with the same PDF attachment. Subject: `✅ GraffInk Diseños — Factura N° XXXXXX confirmada`. The buyer's headers do not show the BCC.
-- Buyer-facing payment description: both Mercado Pago line titles and PayPal `purchase_units[*].description` use the fixed string `"GraffInk Diseños"` (never the per-design product name) so the design name does not leak into the gateway's checkout UI / buyer's bank statement. MP still sends one line per design with the real `productId`, `quantity`, and `unit_price` so the webhook amount-check passes.
-- Storefront contact info: the only public contact channel is the email `graffink.design@gmail.com` (note: "design" with a 'g' — earlier code had a typo "desing" without the 'g' that has been fixed everywhere). It is rendered in the Footer (with a `Mail` icon) and in `CustomDesign.tsx` (CTA button + helper text). WhatsApp was intentionally removed across the storefront — do not re-add unless the operator explicitly asks.
-- DNI/CUIT validation: `artifacts/api-server/src/lib/dniCuit.ts` exports `isValidDniOrCuit` (DNI 7-8 OR CUIT 11 with mod-11 checksum). Applied in `payments.ts` zod refinement and in `orders.ts` admin POST. Mirrored on the storefront as `artifacts/dreamstorm/src/components/storefront/dniInput.ts` (`isAcceptableDniInput` / `dniForPayload`) which is what `CheckoutDialog` calls before firing any request. Both layers are covered by vitest suites (`dniCuit.test.ts` + `orders.invoice-pdf.test.ts` in api-server, `dniInput.test.ts` in dreamstorm).
-- PayPal exchange-rate disclosure: `GET /api/payments/paypal/rate` is **public** (returns `{ arsToUsd, source, cachedAt, mode }`). The `CheckoutDialog` fetches it on entering the payment / paypal-buttons step and shows the buyer the equivalent USD amount and the rate used before they confirm the PayPal payment. The same endpoint also powers the admin Settings tab, which renders a green "LIVE" / amber "SANDBOX" badge based on `mode`.
-- PayPal live vs sandbox: `resolvePaypalMode()` in `artifacts/api-server/src/routes/payments.ts` is **safe by default**. It returns `"sandbox"` UNLESS the secret `PAYPAL_MODE` is explicitly set to `live` (case-insensitive, trimmed). Even with `PAYPAL_MODE=live`, the resolver downgrades back to sandbox when `PAYPAL_CLIENT_ID` looks like a sandbox value (empty, starts with `sb-`, or contains `sandbox`) and emits a WARN. To switch to production: replace `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, and `VITE_PAYPAL_CLIENT_ID` with values from developer.paypal.com → Live, then set `PAYPAL_MODE=live`, then restart the API server. Module load logs the resolved mode + client-ID prefix so misconfiguration is visible in workflow logs.
-- App settings: generic key/value store via `app_settings` table. `GET /api/settings` is **public** (returns `{ planchaGroupingPrice }`); `PATCH /api/settings` is admin-only. Currently stores `plancha_grouping_price` (default 1000 ARS), editable from Admin → Configuración.
-- Product details: `products` rows have optional `description` (text) + `specifications` (jsonb array of `{key, value}`). The storefront `ProductCard` opens a "Ver detalles" Dialog showing image, description, and specs grid. Admin `ProductsTab` exposes a Textarea + dynamic spec rows.
-- Header brand block: the storefront header (`Header.tsx`) renders the logo image alongside a two-line text block — "GraffInk" (white, black weight) above "Diseños" (primary color, letter-spaced caption) — so the page name is always readable next to the icon, both on mobile (`h-10` / `text-base`) and desktop (`h-12` / `text-lg`).
-- Cart quantity stepper: each line in `CartSheet` renders a -/+ stepper (data-testids `button-decrement-<id>`, `text-quantity-<id>`, `button-increment-<id>`) plus a per-line subtotal (`item.price * item.quantity`) and the per-unit price ("$X c/u"). Backed by `updateQuantity(productId, quantity)` on `CartContext` — when `quantity <= 0` it removes the item entirely, so decrementing past 1 is a friendly remove. The trash button still does an immediate full removal.
-- Armar plancha (additive service fee): cart-level toggle that ADDS a single "Armar plancha" service fee on top of the per-design subtotal. Final total = `sum(items.price * items.quantity) + planchaGroupingPrice`. Client sends `groupAsPlancha: boolean` to `/api/payments/mercadopago/preference` and `/api/payments/paypal/create-order`; the server fetches the plancha price from `app_settings` (never trusts client), adds it to the items subtotal, and persists `orders.is_plancha_grouped`. MP receives per-design line items plus a single `armar-plancha` service line so the gateway charges sum(items)+planchaPrice and the webhook amount-check still passes. Email + PDF render each design at its own price followed by a single "Armar plancha (N diseños)" service row (fee derived as `order.total - sum(items)` so historical totals stay consistent even if the live setting changes). Legacy orders persisted under the old replacement-model (where `order.total < sum(items)`) are detected automatically and rendered with the previous "Plancha agrupada (precio único)" headline + sub-rows so historical invoices remain coherent.
-- Armar plancha — manual fulfillment flow: plancha-grouped orders are NOT auto-deliverable. After payment confirmation (MP webhook or PayPal capture), the buyer's confirmation email replaces "Descargar PNG" buttons with an "En preparación" badge and a "24 horas hábiles" delivery promise (subject becomes `🎨 GraffInk Diseños — Tu plancha N° XXXXXX se está armando (24hs)`); the Mis Compras callout is suppressed. In parallel, `sendPlanchaAssemblyAlertEmail(order)` fires-and-forgets (`void` at the call site) an admin email to `GMAIL_USER` with customer info (name/email/DNI), payment method, total + plancha fee, and per-design source-file download links so the admin can compose the assembled plancha PNG and reply by email. The alert is gated on `isPlanchaGrouped && !isLegacyPlanchaOrder(order)` to avoid contradicting the legacy-pricing buyer email which still ships download links.
-- Storefront "Plancha armada" category: products in this category appear ONLY in the dedicated `PlanchasArmadas` section between BestSellers and ProductGrid; they're filtered out of the main grid and category chips.
-
-## Mercado Pago Webhook Setup
-
-The API server validates every incoming MP webhook using HMAC-SHA256 before processing it.
-
-**Webhook URL to register in Mercado Pago panel:**
-```
-https://{REPLIT_DOMAIN}/api/webhooks/mercadopago
-```
-
-**Steps to register:**
-1. Log in to [mercadopago.com/developers](https://www.mercadopago.com/developers)
-2. Go to **Tu negocio → Notificaciones → Webhooks → Configurar notificaciones**
-3. Set the URL above and enable the **Pagos** event
-4. Copy the generated **Secreto de webhook** ("Ver secreto")
-5. Store it as the `MERCADOPAGO_WEBHOOK_SECRET` Replit secret
-
-**How the signature is verified:**
-- MP sends `x-signature: ts=<timestamp>,v1=<hmac-sha256>` and `x-request-id` on every webhook
-- Server builds manifest: `id:<data_id>;request-id:<x-request-id>;ts:<ts>;`
-- Computes `HMAC-SHA256(MERCADOPAGO_WEBHOOK_SECRET, manifest)` and compares using constant-time equality
-- Returns **401** and logs a warning if the signature is missing or invalid; nothing is processed
-- Returns **200** immediately after validation, then processes asynchronously
-
-**Admin alert rate limit:** when an invalid signature is detected the server emails the admin, capped to a maximum number of alerts per hour to avoid spam during attacks. The cap defaults to **5** and can be overridden at runtime (no redeploy needed) via the `WEBHOOK_ALERT_MAX_PER_HOUR` Replit secret. Must be a positive integer; the API server throws at startup if the value is set but invalid.
-
-## Webhook Security Events Cleanup
-
-The `webhook_security_events` table only ever serves the latest 500 rows to the admin panel but grows on every rejected webhook, so it is trimmed on a schedule.
-
-**Script:** `scripts/src/cleanupWebhookSecurityEvents.ts` — deletes every row whose `created_at` is older than the configured retention window and exits. Uses the same `DATABASE_URL` / `@workspace/db` pool as the rest of the workspace, and emits one JSON log line on start and one on done (with `deletedCount`).
-
-**Run manually:**
-```
-pnpm --filter @workspace/scripts run cleanup-webhook-security-events
-```
-
-**Run on a schedule (production):** publish a Replit **Scheduled Deployment** with the command above, set to run **daily** (e.g. `0 4 * * *`). The deployment inherits `DATABASE_URL` and the optional retention secret automatically.
-
-**Retention threshold:** defaults to **90 days**. Override at runtime — no redeploy needed — via the `WEBHOOK_SECURITY_EVENT_RETENTION_DAYS` Replit secret. Must be a positive integer (days); the script exits non-zero if the value is set but invalid.
-
-See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+- **Mercado Pago**: For payment processing and webhooks. Requires `MERCADOPAGO_WEBHOOK_SECRET` for validation.
+- **PayPal**: For payment processing. Requires `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, and `VITE_PAYPAL_CLIENT_ID`, and `PAYPAL_MODE` for configuration.
+- **Clerk**: For authentication and user management (`@clerk/express`, `@clerk/react`).
+- **Google Cloud Bucket (via Replit App Storage)**: For object storage.
+- **PostgreSQL**: Database backend.
+- **Drizzle ORM**: Database interaction layer.
+- **Express.js**: API framework.
+- **Vite**: Frontend build tool.
+- **React**: Frontend library.
+- **Zod**: Schema validation.
+- **Orval**: API client and schema generation.
+- **esbuild**: JavaScript bundler.
+- **PDFKit & Fontkit**: For PDF generation.
+- **Nodemailer**: For sending emails (implied by email sending functionality).
