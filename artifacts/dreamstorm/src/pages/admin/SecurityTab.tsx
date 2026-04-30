@@ -2,14 +2,34 @@ import { useState, useMemo } from "react";
 import { useListWebhookSecurityEvents } from "@workspace/api-client-react";
 import type { WebhookSecurityEvent } from "@workspace/api-client-react";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Loader2, ShieldAlert, Search } from "lucide-react";
 
 const SOURCE_LABELS: Record<string, string> = {
   mercadopago: "Mercado Pago",
+  paypal: "PayPal",
 };
 
+// Source filter options. "all" is the default and matches every event.
+const SOURCE_FILTER_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
+  { value: "all", label: "Todos los orígenes" },
+  { value: "mercadopago", label: "Mercado Pago" },
+  { value: "paypal", label: "PayPal" },
+];
+
 const REASON_LABELS: Record<string, string> = {
+  // Mercado Pago
   invalid_signature: "Firma inválida",
+  // PayPal
+  order_mismatch: "Orden no coincide",
+  reference_mismatch: "Referencia no coincide",
+  amount_mismatch: "Monto no coincide",
 };
 
 function formatDateTime(d: string): string {
@@ -37,6 +57,7 @@ export function SecurityTab() {
   const [ipQuery, setIpQuery] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
 
   const filtered = useMemo(() => {
     if (!events) return [];
@@ -44,13 +65,14 @@ export function SecurityTab() {
     const fromTs = fromDate ? new Date(`${fromDate}T00:00:00`).getTime() : null;
     const toTs = toDate ? new Date(`${toDate}T23:59:59.999`).getTime() : null;
     return events.filter((e) => {
+      if (sourceFilter !== "all" && e.source !== sourceFilter) return false;
       if (q && !(e.ip ?? "").toLowerCase().includes(q)) return false;
       const ts = new Date(e.createdAt).getTime();
       if (fromTs !== null && ts < fromTs) return false;
       if (toTs !== null && ts > toTs) return false;
       return true;
     });
-  }, [events, ipQuery, fromDate, toDate]);
+  }, [events, ipQuery, fromDate, toDate, sourceFilter]);
 
   if (isLoading) {
     return (
@@ -82,11 +104,26 @@ export function SecurityTab() {
             <span className="text-white/40">({events?.length ?? 0})</span>
           </h2>
           <p className="text-sm text-white/50">
-            Intentos de webhook rechazados por firma inválida. Se conservan los
-            500 más recientes.
+            Intentos de webhook rechazados por validaciones fallidas
+            (Mercado Pago y PayPal). Se conservan los 500 más recientes.
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Select value={sourceFilter} onValueChange={setSourceFilter}>
+            <SelectTrigger
+              className="w-full sm:w-44"
+              aria-label="Filtrar por origen"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SOURCE_FILTER_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <div className="relative w-full sm:w-56">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
             <Input

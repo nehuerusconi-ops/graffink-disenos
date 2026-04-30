@@ -696,12 +696,46 @@ router.post("/payments/paypal/create-order", async (req, res): Promise<void> => 
 // PayPal — capture order
 // ---------------------------------------------------------------------------
 
+// Persist a PayPal validation failure to the shared webhook security log.
+// Fire-and-forget so a DB hiccup never delays the response back to the caller.
+// Reasons used:
+//   - order_mismatch:     ppOrderId received doesn't match the externalPaymentId
+//                         persisted for the orderId (potential replay/forgery).
+//   - reference_mismatch: PayPal capture's reference_id doesn't match our orderId.
+//   - amount_mismatch:    captured USD amount doesn't match the amount we
+//                         registered with PayPal at order creation.
+function recordPaypalSecurityEvent(
+  reason: "order_mismatch" | "reference_mismatch" | "amount_mismatch",
+  ip: string,
+  detail: string | null,
+): void {
+  void db
+    .insert(webhookSecurityEventsTable)
+    .values({
+      source: "paypal",
+      reason,
+      ip,
+      xRequestId: null,
+      signatureTs: null,
+      detail,
+    })
+    .catch((err) => {
+      logger.error({ err }, "Failed to persist PayPal webhook security event");
+    });
+}
+
 router.post("/payments/paypal/capture-order", async (req, res): Promise<void> => {
   const { ppOrderId, orderId } = req.body as { ppOrderId?: string; orderId?: string };
   if (!ppOrderId || !orderId) {
     res.status(400).json({ error: "ppOrderId y orderId son requeridos" });
     return;
   }
+
+  // Use req.ip (resolved by Express against the configured trust-proxy hop
+  // count) so the value can't be forged by an attacker stuffing extra IPs
+  // into x-forwarded-for. Falls back to socket address if Express returns
+  // undefined for any reason.
+  const ip = req.ip ?? req.socket.remoteAddress ?? "unknown";
 
   try {
     // First verify the DB order exists and has the expected externalPaymentId (binding check)
@@ -716,6 +750,11 @@ router.post("/payments/paypal/capture-order", async (req, res): Promise<void> =>
     }
     if (dbOrder.externalPaymentId !== ppOrderId) {
       req.log.warn({ orderId, ppOrderId, stored: dbOrder.externalPaymentId }, "PayPal order ID mismatch");
+      recordPaypalSecurityEvent(
+        "order_mismatch",
+        ip,
+        `orderId=${orderId} ppOrderId=${ppOrderId} stored=${dbOrder.externalPaymentId ?? "null"}`,
+      );
       res.status(400).json({ error: "El pedido de PayPal no corresponde a esta orden" });
       return;
     }
@@ -754,6 +793,11 @@ router.post("/payments/paypal/capture-order", async (req, res): Promise<void> =>
     const capturedRef = capturedUnit?.reference_id;
     if (capturedRef && capturedRef !== orderId) {
       req.log.warn({ orderId, capturedRef }, "PayPal reference_id mismatch on capture");
+      recordPaypalSecurityEvent(
+        "reference_mismatch",
+        ip,
+        `orderId=${orderId} capturedRef=${capturedRef} ppOrderId=${ppOrderId}`,
+      );
       res.status(400).json({ error: "El pago capturado no corresponde a esta orden" });
       return;
     }
@@ -773,6 +817,11 @@ router.post("/payments/paypal/capture-order", async (req, res): Promise<void> =>
       // Allow 1 USD tolerance for rounding differences
       if (capturedUsd > 0 && Math.abs(capturedUsd - expectedUsd) > 1) {
         req.log.error({ orderId, capturedUsd, expectedUsd }, "PayPal amount mismatch — NOT marking paid");
+        recordPaypalSecurityEvent(
+          "amount_mismatch",
+          ip,
+          `orderId=${orderId} capturedUsd=${capturedUsd} expectedUsd=${expectedUsd}`,
+        );
         res.status(400).json({ error: "El monto capturado no coincide con el total de la orden" });
         return;
       }
