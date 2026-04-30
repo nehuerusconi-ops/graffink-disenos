@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
 import type { Order } from "@workspace/db";
 import { logger } from "./logger";
-import { buildInvoicePdf } from "./pdfInvoice";
+import { buildInvoicePdf, formatPaypalRateLine } from "./pdfInvoice";
 
 const GMAIL_USER = process.env["GMAIL_USER"];
 const GMAIL_APP_PASSWORD = process.env["GMAIL_APP_PASSWORD"];
@@ -224,6 +224,11 @@ export async function sendOrderConfirmationEmail(order: Order): Promise<void> {
 
   const invoiceStr = String(order.invoiceNumber).padStart(6, "0");
   const totalFormatted = `$${order.total.toLocaleString("es-AR")} ARS`;
+  const paypalRateLine = formatPaypalRateLine(
+    order.paymentMethod,
+    order.arsToUsdRate,
+    order.total,
+  );
 
   const html = `
 <!DOCTYPE html>
@@ -316,6 +321,14 @@ export async function sendOrderConfirmationEmail(order: Order): Promise<void> {
                 <td style="color:#666; font-size:14px; padding:4px 0;">Total pagado</td>
                 <td style="color:#3b82f6; font-size:18px; text-align:right; font-weight:900;">${totalFormatted}</td>
               </tr>
+              ${
+                paypalRateLine !== null
+                  ? `
+              <tr>
+                <td colspan="2" style="color:#888; font-size:12px; padding:8px 0 0 0; text-align:right;">${paypalRateLine}</td>
+              </tr>`
+                  : ""
+              }
             </table>
 
             <p style="color:#555; font-size:13px; margin:0;">
