@@ -47,3 +47,8 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Environment files (secrets are managed by Replit)
+.env
+.env.*
+!.env.example
