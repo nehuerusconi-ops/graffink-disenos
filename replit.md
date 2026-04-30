@@ -40,6 +40,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - Admin tab components live in `artifacts/dreamstorm/src/pages/admin/{ProductsTab,SalesTab,InvoicesTab}.tsx`.
 - PDF invoice: `artifacts/api-server/src/lib/pdfInvoice.ts` builds a paginated PDF (PDFKit) with repeated table header on overflow. Attached to confirmation email and served via `GET /api/orders/:id/invoice-pdf` (admin-only, paid-only). `pdfkit` and `fontkit` are in esbuild externals (build.mjs) because fontkit dynamic-requires `@swc/helpers`.
 - DNI/CUIT validation: `artifacts/api-server/src/lib/dniCuit.ts` exports `isValidDniOrCuit` (DNI 7-8 OR CUIT 11 with mod-11 checksum). Applied in `payments.ts` zod refinement and in `orders.ts` admin POST.
+- PayPal exchange-rate disclosure: `GET /api/payments/paypal/rate` is **public** (returns `{ arsToUsd, source, cachedAt }`). The `CheckoutDialog` fetches it on entering the payment / paypal-buttons step and shows the buyer the equivalent USD amount and the rate used before they confirm the PayPal payment. The same endpoint also powers the admin Settings tab.
 
 ## Mercado Pago Webhook Setup
 

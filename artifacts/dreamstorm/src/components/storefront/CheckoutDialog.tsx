@@ -19,12 +19,21 @@ interface ConfirmedInfo {
   customerEmail?: string;
 }
 
+interface PaypalRateInfo {
+  arsToUsd: number;
+  source: "env" | "dolarapi" | "default";
+  cachedAt: string | null;
+}
+
 export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const [step, setStep] = useState<Step>("details");
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerDni, setCustomerDni] = useState("");
   const [confirmed, setConfirmed] = useState<ConfirmedInfo | null>(null);
+  const [paypalRate, setPaypalRate] = useState<PaypalRateInfo | null>(null);
+  const [paypalRateLoading, setPaypalRateLoading] = useState(false);
+  const [paypalRateError, setPaypalRateError] = useState<string | null>(null);
   // Use a ref to store the dbOrderId synchronously — avoids async state update issues
   // where onPaypalApprove closure could capture a stale null before setState flushes.
   const dbOrderIdRef = useRef<string | null>(null);
@@ -34,9 +43,47 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
     if (open) {
       setStep("details");
       setConfirmed(null);
+      setPaypalRate(null);
+      setPaypalRateError(null);
       dbOrderIdRef.current = null;
     }
   }, [open]);
+
+  // Fetch the ARS→USD rate whenever the user reaches a step that displays the
+  // PayPal option. Re-fetched on each entry so the rate stays fresh if the user
+  // toggles between payment methods.
+  useEffect(() => {
+    if (step !== "payment" && step !== "paypal-buttons") return;
+    let cancelled = false;
+    const controller = new AbortController();
+    setPaypalRateLoading(true);
+    setPaypalRateError(null);
+    fetch(`${BASE}/api/payments/paypal/rate`, { signal: controller.signal })
+      .then(async (r) => {
+        if (!r.ok) throw new Error("rate request failed");
+        return (await r.json()) as PaypalRateInfo;
+      })
+      .then((data) => {
+        if (!cancelled) setPaypalRate(data);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setPaypalRateError("No se pudo obtener el tipo de cambio");
+      })
+      .finally(() => {
+        if (!cancelled) setPaypalRateLoading(false);
+      });
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [step]);
+
+  const usdAmount =
+    paypalRate && paypalRate.arsToUsd > 0
+      ? totalPrice / paypalRate.arsToUsd
+      : null;
 
   const handleProceedToPayment = (e: React.FormEvent) => {
     e.preventDefault();
@@ -272,6 +319,18 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                   <div className="text-white/85 text-xs font-medium mt-1 leading-snug">
                     Pagá en USD desde cualquier país con tu cuenta PayPal o tarjeta
                   </div>
+                  {paypalRateLoading && !usdAmount ? (
+                    <div className="flex items-center gap-1.5 mt-1.5 text-white/70 text-[11px] font-medium">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Calculando equivalente en USD…
+                    </div>
+                  ) : usdAmount != null && paypalRate ? (
+                    <div className="mt-1.5 text-[#FFC439] text-[11px] font-bold font-mono leading-tight">
+                      ≈ USD {usdAmount.toFixed(2)}{" "}
+                      <span className="text-white/60 font-normal">
+                        (1 USD = ${paypalRate.arsToUsd.toLocaleString("es-AR")} ARS)
+                      </span>
+                    </div>
+                  ) : null}
                   <div className="flex items-center gap-1.5 mt-2 text-white/70 text-[10px] font-medium">
                     <ShieldCheck className="w-3 h-3" /> Protección al comprador PayPal
                   </div>
@@ -312,6 +371,29 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
               <button type="button" onClick={() => setStep("payment")} className="text-xs text-white/50 hover:text-white flex items-center gap-1 mb-2">
                 <ArrowLeft className="w-3 h-3" /> Volver
               </button>
+
+              {/* Exchange rate disclosure — buyers see exactly what PayPal will charge in USD */}
+              <div className="bg-gradient-to-br from-[#003087]/30 to-[#003087]/10 border border-[#FFC439]/30 rounded-lg p-4">
+                {paypalRateLoading && !usdAmount ? (
+                  <div className="flex items-center gap-2 text-white/70 text-sm">
+                    <Loader2 className="w-4 h-4 animate-spin" /> Calculando el monto en USD…
+                  </div>
+                ) : paypalRateError && !usdAmount ? (
+                  <p className="text-sm text-amber-300">{paypalRateError}. Vas a ver el monto exacto en la pantalla de PayPal.</p>
+                ) : usdAmount != null && paypalRate ? (
+                  <div className="space-y-1">
+                    <div className="text-[10px] uppercase tracking-widest text-white/50 font-bold">PayPal te va a cobrar</div>
+                    <div className="text-2xl font-black text-[#FFC439] font-mono leading-tight">
+                      USD {usdAmount.toFixed(2)}
+                    </div>
+                    <div className="text-xs text-white/70 font-medium">
+                      Equivalente a <span className="font-mono text-white">${totalPrice.toLocaleString("es-AR")} ARS</span> al tipo de cambio{" "}
+                      <span className="font-mono text-white">$1 USD = ${paypalRate.arsToUsd.toLocaleString("es-AR")} ARS</span>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
               {VITE_PAYPAL_CLIENT_ID ? (
                 <PayPalScriptProvider options={{ clientId: VITE_PAYPAL_CLIENT_ID, currency: "USD", intent: "capture" }}>
                   <div className="bg-white rounded-lg p-3">

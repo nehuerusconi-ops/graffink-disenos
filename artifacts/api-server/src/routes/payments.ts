@@ -420,10 +420,12 @@ router.post("/webhooks/mercadopago", async (req, res): Promise<void> => {
 });
 
 // ---------------------------------------------------------------------------
-// PayPal — exchange rate info (admin)
+// PayPal — exchange rate info (public)
+// Buyers need this to see the USD equivalent of their cart before confirming a
+// PayPal payment. Data is non-sensitive (rate value, its source, cache time).
 // ---------------------------------------------------------------------------
 
-router.get("/payments/paypal/rate", requireAdmin, async (_req, res): Promise<void> => {
+router.get("/payments/paypal/rate", async (_req, res): Promise<void> => {
   const { rate, source, cachedAt } = await getArsToUsdRate();
   res.json({ arsToUsd: rate, source, cachedAt });
 });
