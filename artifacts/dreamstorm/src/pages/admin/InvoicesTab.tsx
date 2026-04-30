@@ -319,6 +319,28 @@ function formatLocalDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+// Convert a YYYY-MM-DD value (as produced by <input type="date">) into the
+// DD/MM/YYYY format Argentine admins expect when read in plain Spanish prose.
+// We split the string ourselves to avoid timezone shifts that would happen
+// with `new Date(yyyymmdd)` near midnight UTC.
+function displayLocalDate(yyyymmdd: string): string {
+  const [y, m, d] = yyyymmdd.split("-");
+  if (!y || !m || !d) return yyyymmdd;
+  return `${d}/${m}/${y}`;
+}
+
+// Build a Spanish phrase describing the active date range, used both in the
+// empty-state message and the "nothing to export" toast. Handles the three
+// shapes the admin can produce: only "desde", only "hasta", or both.
+function describeDateRange(from: string, to: string): string {
+  if (from && to) {
+    return `entre ${displayLocalDate(from)} y ${displayLocalDate(to)}`;
+  }
+  if (from) return `desde ${displayLocalDate(from)}`;
+  if (to) return `hasta ${displayLocalDate(to)}`;
+  return "";
+}
+
 type DateRange = { from: string; to: string };
 
 // Quick preset ranges for the most common accounting periods. Computed lazily
@@ -427,6 +449,42 @@ export function InvoicesTab() {
     });
   }, [orders, search, methodFilter, fromDate, toDate]);
 
+  // Count how many orders the export endpoint would return for the current
+  // payment-method + date-range filters. The CSV export ignores the search
+  // box (it's a client-only filter), so we mirror exactly the server-side
+  // criteria here. Used to short-circuit the download when it would yield an
+  // empty CSV — instead we surface a toast so the admin knows nothing was
+  // missed and the silent header-only download is avoided.
+  const exportCount = useMemo(() => {
+    if (!orders) return 0;
+    const fromMs = fromDate ? Date.parse(`${fromDate}T00:00:00.000Z`) : null;
+    const toMs = toDate ? Date.parse(`${toDate}T23:59:59.999Z`) : null;
+    return orders.filter((o) => {
+      if (methodFilter !== "all" && o.paymentMethod !== methodFilter) {
+        return false;
+      }
+      if (fromMs !== null || toMs !== null) {
+        const created = Date.parse(o.createdAt);
+        if (fromMs !== null && created < fromMs) return false;
+        if (toMs !== null && created > toMs) return false;
+      }
+      return true;
+    }).length;
+  }, [orders, methodFilter, fromDate, toDate]);
+
+  function handleExportClick(): void {
+    if (rangeInvalid) return;
+    if (exportCount === 0) {
+      const rangePhrase = describeDateRange(fromDate, toDate);
+      const msg = rangePhrase
+        ? `No hay ventas ${rangePhrase}. No se descargó ningún archivo.`
+        : "No hay ventas con los filtros actuales. No se descargó ningún archivo.";
+      toast.warning(msg);
+      return;
+    }
+    void downloadOrdersCsv(methodFilter, fromDate, toDate);
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -529,13 +587,15 @@ export function InvoicesTab() {
           </div>
           <Button
             variant="outline"
-            onClick={() => downloadOrdersCsv(methodFilter, fromDate, toDate)}
+            onClick={handleExportClick}
             disabled={rangeInvalid}
             className="border-white/10 hover:bg-white/5 whitespace-nowrap"
             title={
               rangeInvalid
                 ? "El rango de fechas es inválido (desde > hasta)"
-                : "Descargar CSV con las órdenes filtradas"
+                : exportCount === 0
+                  ? "No hay órdenes para exportar con los filtros actuales"
+                  : `Descargar CSV con ${exportCount} orden${exportCount === 1 ? "" : "es"}`
             }
           >
             <FileSpreadsheet className="h-4 w-4 mr-2" /> Exportar CSV
@@ -583,7 +643,13 @@ export function InvoicesTab() {
           <FileText className="h-10 w-10 text-white/20 mx-auto mb-3" />
           <p className="text-white/50">
             {orders && orders.length > 0
-              ? "No hay resultados para esa búsqueda."
+              ? // When the active date range itself is empty (no orders inside
+                // it regardless of search/method), tell the admin explicitly so
+                // they can distinguish "filter is wrong" from "no sales that
+                // week" — previously they only saw the generic message.
+                (fromDate || toDate) && exportCount === 0
+                ? `No hay ventas ${describeDateRange(fromDate, toDate)}.`
+                : "No hay resultados para esa búsqueda."
               : "Todavía no hay ventas registradas."}
           </p>
         </div>
