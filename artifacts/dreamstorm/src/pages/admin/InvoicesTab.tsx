@@ -308,6 +308,86 @@ function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
+// Format a Date as YYYY-MM-DD in *local* time. The native <input type="date">
+// uses this exact format and interprets it in the user's timezone, so we
+// build the string from local components instead of `toISOString()` (which
+// would shift the day for admins east/west of UTC).
+function formatLocalDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+type DateRange = { from: string; to: string };
+
+// Quick preset ranges for the most common accounting periods. Computed lazily
+// (inside the component on every render) so they always reflect "now" — e.g.
+// "Hoy" updates if the admin keeps the tab open across midnight. Weeks start
+// on Monday, matching the Argentine convention for business reporting.
+function computePreset(kind: PresetKind, now: Date = new Date()): DateRange {
+  switch (kind) {
+    case "today": {
+      const t = formatLocalDate(now);
+      return { from: t, to: t };
+    }
+    case "yesterday": {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 1);
+      const s = formatLocalDate(d);
+      return { from: s, to: s };
+    }
+    case "thisWeek": {
+      const day = now.getDay(); // 0 = Sunday, 1 = Monday, …, 6 = Saturday
+      const offsetToMonday = day === 0 ? 6 : day - 1;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - offsetToMonday);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      return { from: formatLocalDate(monday), to: formatLocalDate(sunday) };
+    }
+    case "thisMonth": {
+      const first = new Date(now.getFullYear(), now.getMonth(), 1);
+      const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      return { from: formatLocalDate(first), to: formatLocalDate(last) };
+    }
+    case "lastMonth": {
+      const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const last = new Date(now.getFullYear(), now.getMonth(), 0);
+      return { from: formatLocalDate(first), to: formatLocalDate(last) };
+    }
+    case "thisQuarter": {
+      const q = Math.floor(now.getMonth() / 3);
+      const first = new Date(now.getFullYear(), q * 3, 1);
+      const last = new Date(now.getFullYear(), q * 3 + 3, 0);
+      return { from: formatLocalDate(first), to: formatLocalDate(last) };
+    }
+    case "thisYear": {
+      const y = now.getFullYear();
+      return { from: `${y}-01-01`, to: `${y}-12-31` };
+    }
+  }
+}
+
+type PresetKind =
+  | "today"
+  | "yesterday"
+  | "thisWeek"
+  | "thisMonth"
+  | "lastMonth"
+  | "thisQuarter"
+  | "thisYear";
+
+const DATE_PRESETS: ReadonlyArray<{ kind: PresetKind; label: string }> = [
+  { kind: "today", label: "Hoy" },
+  { kind: "yesterday", label: "Ayer" },
+  { kind: "thisWeek", label: "Esta semana" },
+  { kind: "thisMonth", label: "Este mes" },
+  { kind: "lastMonth", label: "Mes pasado" },
+  { kind: "thisQuarter", label: "Este trimestre" },
+  { kind: "thisYear", label: "Este año" },
+];
+
 export function InvoicesTab() {
   const { data: orders, isLoading } = useListOrders<Order[]>();
   const [search, setSearch] = useState("");
@@ -461,6 +541,36 @@ export function InvoicesTab() {
             <FileSpreadsheet className="h-4 w-4 mr-2" /> Exportar CSV
           </Button>
         </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[10px] uppercase tracking-widest text-white/40 mr-1">
+          Rangos rápidos
+        </span>
+        {DATE_PRESETS.map(({ kind, label }) => {
+          const range = computePreset(kind);
+          // Highlight the preset whose computed range matches the inputs so
+          // the admin can see at a glance which atajo is currently active.
+          const active = fromDate === range.from && toDate === range.to;
+          return (
+            <Button
+              key={kind}
+              size="sm"
+              variant={active ? "default" : "outline"}
+              onClick={() => {
+                setFromDate(range.from);
+                setToDate(range.to);
+              }}
+              className={
+                active
+                  ? "h-7 px-3 text-xs whitespace-nowrap"
+                  : "h-7 px-3 text-xs whitespace-nowrap border-white/10 hover:bg-white/5"
+              }
+              title={`${range.from} → ${range.to}`}
+            >
+              {label}
+            </Button>
+          );
+        })}
       </div>
       {rangeInvalid && (
         <p className="text-xs text-red-400">
