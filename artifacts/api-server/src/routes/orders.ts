@@ -6,6 +6,7 @@ import type { OrderItem } from "@workspace/db";
 import { CreateOrderBody, GetOrderParams } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
 import { requireAdmin } from "../middlewares/requireAdmin";
+import { ordersByEmailRateLimiter } from "../middlewares/rateLimiters";
 
 const router: IRouter = Router();
 
@@ -164,7 +165,7 @@ router.get("/orders/stats", requireAuth, async (_req, res): Promise<void> => {
 // re-download their files without needing the original confirmation email.
 // Only exposes non-sensitive order data (no internal IDs beyond invoiceNumber).
 // IMPORTANT: must be registered before GET /orders/:id to avoid route shadowing.
-router.get("/orders/by-email", async (req, res): Promise<void> => {
+router.get("/orders/by-email", ordersByEmailRateLimiter, async (req, res): Promise<void> => {
   const parsed = z.object({ email: z.string().email() }).safeParse(req.query);
   if (!parsed.success) {
     res.status(400).json({ error: "Email inválido" });

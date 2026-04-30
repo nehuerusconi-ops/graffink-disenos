@@ -11,6 +11,14 @@ import { logger } from "./lib/logger";
 
 const app: Express = express();
 
+// The api-server always sits behind exactly one trusted hop: the Replit shared
+// proxy (mTLS-authenticated, see pnpm-workspace skill). Trusting one hop lets
+// Express derive `req.ip` from the rightmost X-Forwarded-For entry, which is
+// the value the trusted proxy appended — i.e. the real client IP, regardless
+// of any client-supplied XFF prefix. This is required for `express-rate-limit`
+// to key per real client IP without being bypassed by header spoofing.
+app.set("trust proxy", 1);
+
 app.use(
   pinoHttp({
     logger,
