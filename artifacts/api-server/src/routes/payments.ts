@@ -42,6 +42,37 @@ const PAYPAL_CLIENT_SECRET = process.env["PAYPAL_CLIENT_SECRET"] ?? "";
 const UALA_PAYMENT_LINK = process.env["UALA_PAYMENT_LINK"] ?? "";
 
 // ---------------------------------------------------------------------------
+// PayPal environment selection — SAFE BY DEFAULT
+// ---------------------------------------------------------------------------
+// Live mode is opt-in only via the explicit PAYPAL_MODE secret. Anything else
+// (unset, invalid value, sandbox-looking client ID) resolves to sandbox so we
+// never charge real money by accident — for example, if the wrong client ID
+// is pasted, or if PAYPAL_MODE is removed during a config edit.
+//
+// To switch to live, the operator must:
+//   1. Replace PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET and VITE_PAYPAL_CLIENT_ID
+//      with the values from developer.paypal.com → My Apps & Credentials → Live.
+//   2. Set the secret PAYPAL_MODE=live.
+//   3. Restart the API server.
+type PaypalMode = "live" | "sandbox";
+function resolvePaypalMode(): PaypalMode {
+  const explicit = (process.env["PAYPAL_MODE"] ?? "").trim().toLowerCase();
+  if (explicit === "live") {
+    // Belt-and-suspenders: even with PAYPAL_MODE=live, refuse to actually
+    // hit production if the client ID still looks like a sandbox value.
+    const id = PAYPAL_CLIENT_ID.trim().toLowerCase();
+    if (id && !id.startsWith("sb-") && !id.includes("sandbox")) {
+      return "live";
+    }
+    logger.warn(
+      "PAYPAL_MODE=live but the configured PAYPAL_CLIENT_ID looks like a sandbox value; staying on sandbox",
+    );
+    return "sandbox";
+  }
+  return "sandbox";
+}
+
+// ---------------------------------------------------------------------------
 // ARS→USD conversion rate for PayPal
 // Priority: PAYPAL_ARS_TO_USD_RATE env var > live rate from dolarapi.com (1h cache) > 1200 default
 // Set PAYPAL_ARS_TO_USD_RATE to override the automatic rate at any time without redeploy.
@@ -513,7 +544,7 @@ router.post("/webhooks/mercadopago", async (req, res): Promise<void> => {
 
 router.get("/payments/paypal/rate", async (_req, res): Promise<void> => {
   const { rate, source, cachedAt } = await getArsToUsdRate();
-  res.json({ arsToUsd: rate, source, cachedAt });
+  res.json({ arsToUsd: rate, source, cachedAt, mode: resolvePaypalMode() });
 });
 
 // ---------------------------------------------------------------------------
@@ -522,11 +553,9 @@ router.get("/payments/paypal/rate", async (_req, res): Promise<void> => {
 
 
 function paypalBase(): string {
-  const isSandbox =
-    PAYPAL_CLIENT_ID.startsWith("sb-") ||
-    PAYPAL_CLIENT_ID.includes("sandbox") ||
-    process.env["NODE_ENV"] !== "production";
-  return isSandbox ? "https://api-m.sandbox.paypal.com" : "https://api-m.paypal.com";
+  return resolvePaypalMode() === "live"
+    ? "https://api-m.paypal.com"
+    : "https://api-m.sandbox.paypal.com";
 }
 
 async function getPaypalAccessToken(): Promise<string> {

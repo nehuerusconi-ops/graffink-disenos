@@ -17,6 +17,12 @@ interface RateInfo {
   arsToUsd: number;
   source: "env" | "dolarapi" | "default";
   cachedAt: string | null;
+  /**
+   * Optional — older builds of the API don't return it. When present indicates
+   * whether PayPal is hitting api-m.paypal.com (live) or api-m.sandbox.paypal.com
+   * (sandbox).
+   */
+  mode?: "live" | "sandbox";
 }
 
 const SOURCE_LABELS: Record<RateInfo["source"], string> = {
@@ -176,6 +182,20 @@ export function SettingsTab() {
             <p className="text-sm text-red-400">{error}</p>
           ) : rateInfo ? (
             <div className="space-y-3">
+              {rateInfo.mode && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-white/60">Modo de PayPal</span>
+                  {rateInfo.mode === "live" ? (
+                    <Badge className="bg-green-600 hover:bg-green-600 text-white border-transparent">
+                      LIVE — cobrando dinero real
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-amber-500 hover:bg-amber-500 text-black border-transparent">
+                      SANDBOX — modo prueba
+                    </Badge>
+                  )}
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <span className="text-sm text-white/60">Tasa activa</span>
                 <div className="flex items-center gap-2">
@@ -212,20 +232,45 @@ export function SettingsTab() {
                   PayPal requiere cobrar en USD. El servidor convierte automáticamente los precios
                   en ARS usando esta tasa antes de crear cada orden.
                 </p>
-                <p className="font-semibold text-white/80">Cómo actualizar la tasa:</p>
+                <p className="font-semibold text-white/80">Cómo cambiar entre prueba y real:</p>
                 <ol className="list-decimal list-inside space-y-1 text-white/60">
                   <li>
-                    Configurá la variable de entorno{" "}
+                    Cargá las credenciales en los secrets{" "}
+                    <code className="bg-white/10 px-1 py-0.5 rounded text-xs font-mono text-primary">
+                      PAYPAL_CLIENT_ID
+                    </code>
+                    ,{" "}
+                    <code className="bg-white/10 px-1 py-0.5 rounded text-xs font-mono text-primary">
+                      PAYPAL_CLIENT_SECRET
+                    </code>{" "}
+                    y{" "}
+                    <code className="bg-white/10 px-1 py-0.5 rounded text-xs font-mono text-primary">
+                      VITE_PAYPAL_CLIENT_ID
+                    </code>{" "}
+                    (las dos primeras son del servidor, la tercera es la que usa el botón en el navegador).
+                  </li>
+                  <li>
+                    Seteá el secret{" "}
+                    <code className="bg-white/10 px-1 py-0.5 rounded text-xs font-mono text-primary">
+                      PAYPAL_MODE
+                    </code>{" "}
+                    en <code className="bg-white/10 px-1 py-0.5 rounded text-xs font-mono">live</code> para cobrar de verdad,
+                    o en <code className="bg-white/10 px-1 py-0.5 rounded text-xs font-mono">sandbox</code> para hacer pruebas sin movimiento real.
+                  </li>
+                  <li>Reiniciá el servidor y verificá arriba que el badge diga LIVE.</li>
+                </ol>
+                <p className="font-semibold text-white/80 pt-2">Tasa de cambio:</p>
+                <ol className="list-decimal list-inside space-y-1 text-white/60">
+                  <li>
+                    Para fijarla manualmente, cargá el secret{" "}
                     <code className="bg-white/10 px-1 py-0.5 rounded text-xs font-mono text-primary">
                       PAYPAL_ARS_TO_USD_RATE
                     </code>{" "}
-                    con el nuevo valor (ej: <code className="bg-white/10 px-1 py-0.5 rounded text-xs font-mono">1350</code>).
+                    (ej: <code className="bg-white/10 px-1 py-0.5 rounded text-xs font-mono">1350</code>).
                   </li>
-                  <li>Reiniciá el servidor para que tome el nuevo valor.</li>
                   <li>
-                    Si no configurás la variable, el servidor obtiene la tasa automáticamente de{" "}
-                    <span className="text-white/80">dolarapi.com</span> (dólar blue) con
-                    actualización cada hora. Si no puede conectarse, usa 1200 como respaldo.
+                    Si no la cargás, se toma automáticamente de{" "}
+                    <span className="text-white/80">dolarapi.com</span> (dólar blue, cache 1 hora). Si falla, usa 1200 como respaldo.
                   </li>
                 </ol>
               </div>
