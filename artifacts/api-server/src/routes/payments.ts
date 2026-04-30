@@ -11,7 +11,28 @@ import { z } from "zod";
 
 const router: IRouter = Router();
 
-const DOMAIN = (process.env["REPLIT_DOMAINS"] ?? "localhost:80").split(",")[0];
+// Resolve the public-facing domain used for MP back_urls and notification_url.
+// Priority:
+//   1. REPLIT_DOMAINS (set when the app is published) — first comma-separated value
+//   2. REPLIT_DEV_DOMAIN (set in the development workspace)
+//   3. null (no public domain available — back_urls will be omitted)
+// MP requires that back_urls / notification_url use a domain that is whitelisted
+// in the developer panel, so the merchant must register both the prod and dev
+// domains in mercadopago.com.ar/developers/panel/app.
+function resolvePublicDomain(): string | null {
+  const prod = process.env["REPLIT_DOMAINS"];
+  if (prod && prod.trim().length > 0) {
+    const first = prod.split(",")[0]?.trim();
+    if (first && first !== "localhost:80" && !first.startsWith("localhost")) {
+      return first;
+    }
+  }
+  const dev = process.env["REPLIT_DEV_DOMAIN"];
+  if (dev && dev.trim().length > 0 && !dev.startsWith("localhost")) {
+    return dev.trim();
+  }
+  return null;
+}
 const MP_ACCESS_TOKEN = process.env["MERCADOPAGO_ACCESS_TOKEN"] ?? "";
 const MP_WEBHOOK_SECRET = process.env["MERCADOPAGO_WEBHOOK_SECRET"] ?? "";
 const PAYPAL_CLIENT_ID = process.env["PAYPAL_CLIENT_ID"] ?? "";
@@ -167,10 +188,6 @@ router.post("/payments/mercadopago/preference", async (req, res): Promise<void> 
 
     const preference = new Preference(mpClient);
 
-    // Determine whether we are in production (REPLIT_DEPLOYMENT is set by Replit
-    // when the app is deployed; in dev it is unset).
-    const isProduction = !!process.env["REPLIT_DEPLOYMENT"];
-
     const prefBody: Parameters<typeof preference.create>[0]["body"] = {
       external_reference: order.id,
       items: orderItems.map((it) => ({
@@ -182,18 +199,31 @@ router.post("/payments/mercadopago/preference", async (req, res): Promise<void> 
       })),
     };
 
-    // back_urls and auto_return require the domain to be whitelisted in the
-    // Mercado Pago developer application. In production the deployed domain is
-    // registered; in development omit them so the preference still creates and
-    // MP will use the default redirect configured in the application dashboard.
-    if (isProduction) {
+    // back_urls / auto_return / notification_url require the domain to be
+    // whitelisted in the Mercado Pago developer panel
+    // (mercadopago.com.ar/developers/panel/app). We send them whenever a public
+    // domain is available — in production from REPLIT_DOMAINS, in development
+    // from REPLIT_DEV_DOMAIN. If MP rejects with `back_url.*` invalid, that
+    // means the domain is not yet registered in the panel.
+    const publicDomain = resolvePublicDomain();
+    const isProduction = !!process.env["REPLIT_DEPLOYMENT"];
+    if (publicDomain) {
       prefBody.back_urls = {
-        success: `https://${DOMAIN}/checkout/success`,
-        pending: `https://${DOMAIN}/checkout/pending`,
-        failure: `https://${DOMAIN}/checkout/failure`,
+        success: `https://${publicDomain}/checkout/success`,
+        pending: `https://${publicDomain}/checkout/pending`,
+        failure: `https://${publicDomain}/checkout/failure`,
       };
       prefBody.auto_return = "approved";
-      prefBody.notification_url = `https://${DOMAIN}/api/webhooks/mercadopago`;
+      prefBody.notification_url = `https://${publicDomain}/api/webhooks/mercadopago`;
+      req.log.info(
+        { publicDomain, isProduction, orderId: order.id },
+        "Creating MP preference with back_urls",
+      );
+    } else {
+      req.log.warn(
+        { orderId: order.id },
+        "No REPLIT_DOMAINS or REPLIT_DEV_DOMAIN available — MP preference will be created without back_urls/notification_url",
+      );
     }
 
     const pref = await preference.create({ body: prefBody });
@@ -217,6 +247,33 @@ router.post("/payments/mercadopago/preference", async (req, res): Promise<void> 
       res.status(503).json({
         error: "La aplicación de Mercado Pago no está activada. Activá Checkout Pro en mercadopago.com.ar/developers/panel/app",
         code: mpCode,
+      });
+      return;
+    }
+
+    // Detect MP errors caused by an unauthorized back_url domain. MP returns
+    // either an HTTP 400 with cause code 2063 or a message mentioning
+    // "back_url" / "auto_return". This happens when the domain we send is not
+    // yet registered in the developer panel. Common in development the first
+    // time the dev domain is used.
+    const mpMessage =
+      typeof mpErr?.message === "string" ? mpErr.message.toLowerCase() : "";
+    const mpCause = Array.isArray(mpErr?.cause) ? mpErr.cause : [];
+    const causeCodes = mpCause
+      .map((c) => (c && typeof c === "object" ? (c as { code?: unknown }).code : undefined))
+      .map((c) => (typeof c === "number" || typeof c === "string" ? String(c) : ""));
+    const looksLikeBackUrlError =
+      causeCodes.includes("2063") ||
+      mpMessage.includes("back_url") ||
+      mpMessage.includes("auto_return") ||
+      mpMessage.includes("invalid_back_url");
+    if (looksLikeBackUrlError) {
+      const usedDomain = resolvePublicDomain();
+      res.status(503).json({
+        error: usedDomain
+          ? `Mercado Pago rechazó el dominio "${usedDomain}". Cargalo en mercadopago.com.ar/developers/panel/app dentro de "URLs de redirección".`
+          : "Mercado Pago rechazó las back_urls. Cargá tu dominio en mercadopago.com.ar/developers/panel/app dentro de \"URLs de redirección\".",
+        code: "INVALID_BACK_URL",
       });
       return;
     }
