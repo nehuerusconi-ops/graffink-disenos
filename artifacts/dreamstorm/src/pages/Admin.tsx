@@ -8,11 +8,12 @@ import {
 } from "@clerk/react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Loader2, LogOut, Package, BarChart3, FileText, Settings } from "lucide-react";
+import { Loader2, LogOut, Package, BarChart3, FileText, Settings, ShieldAlert } from "lucide-react";
 import { ProductsTab } from "./admin/ProductsTab";
 import { SalesTab } from "./admin/SalesTab";
 import { InvoicesTab } from "./admin/InvoicesTab";
 import { SettingsTab } from "./admin/SettingsTab";
+import { SecurityTab } from "./admin/SecurityTab";
 
 export default function AdminPage() {
   return (
@@ -86,6 +87,9 @@ function AdminContent() {
               <TabsTrigger value="invoices" className="data-[state=active]:bg-primary data-[state=active]:text-white px-4 py-2 font-bold uppercase tracking-wider text-xs">
                 <FileText className="h-4 w-4 mr-2" /> Facturación
               </TabsTrigger>
+              <TabsTrigger value="security" className="data-[state=active]:bg-primary data-[state=active]:text-white px-4 py-2 font-bold uppercase tracking-wider text-xs">
+                <ShieldAlert className="h-4 w-4 mr-2" /> Seguridad
+              </TabsTrigger>
               <TabsTrigger value="settings" className="data-[state=active]:bg-primary data-[state=active]:text-white px-4 py-2 font-bold uppercase tracking-wider text-xs">
                 <Settings className="h-4 w-4 mr-2" /> Config
               </TabsTrigger>
@@ -100,6 +104,9 @@ function AdminContent() {
           </TabsContent>
           <TabsContent value="invoices" className="mt-0">
             <InvoicesTab />
+          </TabsContent>
+          <TabsContent value="security" className="mt-0">
+            <SecurityTab />
           </TabsContent>
           <TabsContent value="settings" className="mt-0">
             <SettingsTab />

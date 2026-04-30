@@ -5,6 +5,7 @@ import productsRouter from "./products";
 import ordersRouter from "./orders";
 import paymentsRouter from "./payments";
 import settingsRouter from "./settings";
+import securityRouter from "./security";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(productsRouter);
 router.use(ordersRouter);
 router.use(paymentsRouter);
 router.use(settingsRouter);
+router.use(securityRouter);
 
 export default router;

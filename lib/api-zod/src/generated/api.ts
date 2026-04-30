@@ -474,3 +474,30 @@ export const UpdateAppSettingsResponse = zod.object({
       'Precio en ARS del servicio \"Armar plancha\". Se SUMA al subtotal de los diseños cuando el cliente activa la opción en el carrito; no reemplaza el total.',
     ),
 });
+
+/**
+ * Returns up to 500 of the most recent rejected webhook attempts (e.g. invalid Mercado Pago signature) for review in the admin panel.
+
+ * @summary List rejected webhook attempts (admin)
+ */
+export const ListWebhookSecurityEventsResponseItem = zod.object({
+  id: zod.number(),
+  createdAt: zod.coerce.date(),
+  source: zod.string().describe('Webhook source (e.g. \"mercadopago\")'),
+  reason: zod
+    .string()
+    .describe('Why the attempt was rejected (e.g. \"invalid_signature\")'),
+  ip: zod.string().nullable(),
+  xRequestId: zod.string().nullable(),
+  signatureTs: zod
+    .string()
+    .nullable()
+    .describe("Timestamp parsed from the x-signature header"),
+  detail: zod
+    .string()
+    .nullable()
+    .describe("Extra context (e.g. data.id sent with the rejected request)"),
+});
+export const ListWebhookSecurityEventsResponse = zod.array(
+  ListWebhookSecurityEventsResponseItem,
+);

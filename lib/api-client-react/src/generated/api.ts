@@ -35,6 +35,7 @@ import type {
   ProductUpdate,
   RequestUploadUrl200,
   RequestUploadUrlBody,
+  WebhookSecurityEvent,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -1544,6 +1545,87 @@ export const useUpdateAppSettings = <
 > => {
   return useMutation(getUpdateAppSettingsMutationOptions(options));
 };
+
+/**
+ * Returns up to 500 of the most recent rejected webhook attempts (e.g. invalid Mercado Pago signature) for review in the admin panel.
+
+ * @summary List rejected webhook attempts (admin)
+ */
+export const getListWebhookSecurityEventsUrl = () => {
+  return `/api/security/webhook-events`;
+};
+
+export const listWebhookSecurityEvents = async (
+  options?: RequestInit,
+): Promise<WebhookSecurityEvent[]> => {
+  return customFetch<WebhookSecurityEvent[]>(
+    getListWebhookSecurityEventsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListWebhookSecurityEventsQueryKey = () => {
+  return [`/api/security/webhook-events`] as const;
+};
+
+export const getListWebhookSecurityEventsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listWebhookSecurityEvents>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listWebhookSecurityEvents>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListWebhookSecurityEventsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listWebhookSecurityEvents>>
+  > = ({ signal }) => listWebhookSecurityEvents({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listWebhookSecurityEvents>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListWebhookSecurityEventsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listWebhookSecurityEvents>>
+>;
+export type ListWebhookSecurityEventsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List rejected webhook attempts (admin)
+ */
+
+export function useListWebhookSecurityEvents<
+  TData = Awaited<ReturnType<typeof listWebhookSecurityEvents>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listWebhookSecurityEvents>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListWebhookSecurityEventsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * Receives Mercado Pago payment notifications, re-validates payment status via MP API, verifies amount against order total, and marks order as paid + triggers email delivery.

@@ -34,3 +34,4 @@ export * from "./productSpec";
 export * from "./productUpdate";
 export * from "./requestUploadUrl200";
 export * from "./requestUploadUrlBody";
+export * from "./webhookSecurityEvent";

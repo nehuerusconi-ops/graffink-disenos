@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { createHmac, timingSafeEqual } from "crypto";
 import { MercadoPagoConfig, Preference, Payment } from "mercadopago";
-import { db, ordersTable, productsTable } from "@workspace/db";
+import { db, ordersTable, productsTable, webhookSecurityEventsTable } from "@workspace/db";
 import type { OrderItem } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 import { sendOrderConfirmationEmail, sendWebhookSignatureAlertEmail } from "../lib/email";
@@ -422,11 +422,31 @@ router.post("/webhooks/mercadopago", async (req, res): Promise<void> => {
     const tsMatch = xSignature ? /ts=([^,]+)/.exec(xSignature) : null;
     const sigTimestamp = tsMatch ? tsMatch[1] : new Date().toISOString();
 
+    // Use req.ip (resolved by Express against the configured trust-proxy hop
+    // count) so the value can't be forged by an attacker stuffing extra IPs
+    // into x-forwarded-for. Falls back to socket address if Express returns
+    // undefined for any reason.
+    const ip = req.ip ?? req.socket.remoteAddress ?? "unknown";
+
+    // Persist the rejected attempt for the admin security log. Fire-and-forget
+    // so a DB hiccup never delays the 401 response back to the caller.
+    void db
+      .insert(webhookSecurityEventsTable)
+      .values({
+        source: "mercadopago",
+        reason: "invalid_signature",
+        ip,
+        xRequestId: xRequestId ?? null,
+        signatureTs: sigTimestamp ?? null,
+        detail: dataId ? `data.id=${String(dataId)}` : null,
+      })
+      .catch((err) => {
+        logger.error({ err }, "Failed to persist webhook security event");
+      });
+
     // Fire-and-forget alert to the admin (rate-limited internally)
     void sendWebhookSignatureAlertEmail({
-      ip: (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
-        ?? req.socket.remoteAddress
-        ?? "unknown",
+      ip,
       xRequestId,
       timestamp: sigTimestamp ?? new Date().toISOString(),
     });

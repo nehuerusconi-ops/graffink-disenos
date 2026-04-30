@@ -210,6 +210,21 @@ export interface OrderStats {
   revenueByMethod: OrderStatsRevenueByMethodItem[];
 }
 
+export interface WebhookSecurityEvent {
+  id: number;
+  createdAt: string;
+  /** Webhook source (e.g. "mercadopago") */
+  source: string;
+  /** Why the attempt was rejected (e.g. "invalid_signature") */
+  reason: string;
+  ip: string | null;
+  xRequestId: string | null;
+  /** Timestamp parsed from the x-signature header */
+  signatureTs: string | null;
+  /** Extra context (e.g. data.id sent with the rejected request) */
+  detail: string | null;
+}
+
 export type RequestUploadUrlBody = {
   name: string;
   size: number;

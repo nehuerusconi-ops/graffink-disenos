@@ -20,6 +20,8 @@ tags:
     description: Payment gateway integrations (Mercado Pago, PayPal, Ualá Bis)
   - name: settings
     description: Editable app-level settings (e.g. plancha grouping price)
+  - name: security
+    description: Security audit logs (admin-only)
 paths:
   /healthz:
     get:
@@ -508,6 +510,38 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /security/webhook-events:
+    get:
+      operationId: listWebhookSecurityEvents
+      tags: [security]
+      summary: List rejected webhook attempts (admin)
+      description: >
+        Returns up to 500 of the most recent rejected webhook attempts
+        (e.g. invalid Mercado Pago signature) for review in the admin panel.
+      security:
+        - clerkAuth: []
+      responses:
+        "200":
+          description: Events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WebhookSecurityEvent"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden — not in admin allowlist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /webhooks/mercadopago:
     post:
       operationId: mercadoPagoWebhook
@@ -863,3 +897,41 @@ components:
         - revenueByDay
         - topProducts
         - revenueByMethod
+
+    WebhookSecurityEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        source:
+          type: string
+          description: Webhook source (e.g. "mercadopago")
+        reason:
+          type: string
+          description: Why the attempt was rejected (e.g. "invalid_signature")
+        ip:
+          type: string
+          nullable: true
+        xRequestId:
+          type: string
+          nullable: true
+        signatureTs:
+          type: string
+          nullable: true
+          description: Timestamp parsed from the x-signature header
+        detail:
+          type: string
+          nullable: true
+          description: Extra context (e.g. data.id sent with the rejected request)
+      required:
+        - id
+        - createdAt
+        - source
+        - reason
+        - ip
+        - xRequestId
+        - signatureTs
+        - detail
