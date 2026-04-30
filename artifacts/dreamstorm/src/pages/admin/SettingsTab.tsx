@@ -1,8 +1,15 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, RefreshCw, DollarSign, Info } from "lucide-react";
+import { Loader2, RefreshCw, DollarSign, Info, Layers, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  useGetAppSettings,
+  useUpdateAppSettings,
+} from "@workspace/api-client-react";
+import { toast } from "sonner";
 
 interface RateInfo {
   arsToUsd: number;
@@ -46,6 +53,35 @@ export function SettingsTab() {
     void fetchRate();
   }, []);
 
+  // ---------------------------------------------------------------------------
+  // Precio de "Armar plancha" (agrupar carrito como una sola plancha)
+  // ---------------------------------------------------------------------------
+  const settingsQuery = useGetAppSettings();
+  const updateSettingsMut = useUpdateAppSettings();
+  const [planchaPriceInput, setPlanchaPriceInput] = useState<string>("");
+
+  useEffect(() => {
+    if (settingsQuery.data && planchaPriceInput === "") {
+      setPlanchaPriceInput(String(settingsQuery.data.planchaGroupingPrice));
+    }
+  }, [settingsQuery.data, planchaPriceInput]);
+
+  const handleSavePlanchaPrice = async () => {
+    const n = Number(planchaPriceInput);
+    if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
+      toast.error("Ingresá un precio válido (entero ≥ 0)");
+      return;
+    }
+    try {
+      await updateSettingsMut.mutateAsync({
+        data: { planchaGroupingPrice: n },
+      });
+      toast.success("Precio de plancha actualizado");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al guardar");
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
@@ -54,6 +90,65 @@ export function SettingsTab() {
           Ajustes del sistema y variables de entorno.
         </p>
       </div>
+
+      <Card className="bg-card border-card-border">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base font-bold uppercase tracking-wider">
+            <Layers className="h-4 w-4 text-primary" />
+            Precio armar plancha
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {settingsQuery.isLoading ? (
+            <div className="flex items-center gap-2 text-white/50 text-sm">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Cargando precio actual…
+            </div>
+          ) : settingsQuery.isError ? (
+            <p className="text-sm text-red-400">No se pudo cargar el precio actual.</p>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="plancha-price">Precio único de plancha agrupada (ARS)</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="plancha-price"
+                    type="number"
+                    min={0}
+                    step="100"
+                    value={planchaPriceInput}
+                    onChange={(e) => setPlanchaPriceInput(e.target.value)}
+                    placeholder="1000"
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={() => void handleSavePlanchaPrice()}
+                    disabled={updateSettingsMut.isPending}
+                    className="bg-primary hover:bg-primary/90"
+                  >
+                    {updateSettingsMut.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" /> Guardar
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+              <div className="flex gap-2 text-sm text-white/60 border-t border-white/10 pt-4">
+                <Info className="h-4 w-4 shrink-0 mt-0.5 text-primary" />
+                <p>
+                  Cuando un cliente activa la opción <strong>“Agrupar como plancha”</strong> en
+                  el carrito, el total se reemplaza por este valor único —sin importar la
+                  cantidad de diseños incluidos. El comprobante muestra todos los diseños
+                  como parte de la plancha.
+                </p>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       <Card className="bg-card border-card-border">
         <CardHeader className="pb-3">

@@ -263,15 +263,16 @@ export function buildInvoicePdf(order: Order): Promise<Buffer> {
       let rowY = drawTableHeader(tableTop);
       const rowH = 22;
       doc.font("Helvetica").fontSize(9).fillColor("#000");
-      for (const item of order.items) {
-        // dynamic row height for long descriptions
-        const descHeight = doc.heightOfString(item.name, {
-          width: colDescW - 12,
-        });
-        const thisRowH = Math.max(rowH, descHeight + 10);
 
-        // start a new page if this row would overflow the body area
-        if (rowY + thisRowH > PAGE_BOTTOM_LIMIT) {
+      if (order.isPlanchaGrouped) {
+        // Plancha agrupada: render a header row "Plancha agrupada (N diseños)"
+        // priced at order.total, then list each included design on its own
+        // sub-row (italic, price column dashed) so long carts paginate cleanly
+        // instead of overflowing into the totals/footer area.
+        const headlineText = `Plancha agrupada (${order.items.length} diseño${order.items.length > 1 ? "s" : ""})`;
+        const headlineRowH = 28;
+
+        if (rowY + headlineRowH > PAGE_BOTTOM_LIMIT) {
           doc.addPage();
           rowY = drawTableHeader(PAGE_MARGIN);
           doc.font("Helvetica").fontSize(9).fillColor("#000");
@@ -280,26 +281,97 @@ export function buildInvoicePdf(order: Order): Promise<Buffer> {
         doc
           .lineWidth(0.5)
           .strokeColor("#000")
-          .rect(PAGE_MARGIN, rowY, CONTENT_W, thisRowH)
-          .stroke();
+          .rect(PAGE_MARGIN, rowY, CONTENT_W, headlineRowH)
+          .fillAndStroke("#fafafa", "#000")
+          .fillColor("#000");
 
-        const lineSubtotal = item.price * item.quantity;
-        const cellY = rowY + 6;
-        doc.text(String(item.quantity), cantX, cellY, {
-          width: colCantW,
-          align: "center",
-        });
-        doc.text(item.name, descX + 6, cellY, { width: colDescW - 12 });
-        doc.text(`$ ${fmtMoney(item.price)}`, unitX, cellY, {
+        const headlineY = rowY + 9;
+        doc.font("Helvetica").fontSize(9);
+        doc.text("1", cantX, headlineY, { width: colCantW, align: "center" });
+        doc.font("Helvetica-Bold").fontSize(9);
+        doc.text(headlineText, descX + 6, headlineY, { width: colDescW - 12 });
+        doc.text(`$ ${fmtMoney(order.total)}`, unitX, headlineY, {
           width: colUnitW - 6,
           align: "right",
         });
-        doc.text(`$ ${fmtMoney(lineSubtotal)}`, totalX, cellY, {
+        doc.text(`$ ${fmtMoney(order.total)}`, totalX, headlineY, {
           width: colTotalW - 6,
           align: "right",
         });
+        rowY += headlineRowH;
 
-        rowY += thisRowH;
+        // Sub-rows: one per included design, paginated independently.
+        for (const item of order.items) {
+          const subDesc = `   ↳ Incluye: ${item.name}${item.quantity > 1 ? ` × ${item.quantity}` : ""}`;
+          doc.font("Helvetica-Oblique").fontSize(8);
+          const subDescH = doc.heightOfString(subDesc, { width: colDescW - 12 });
+          const subRowH = Math.max(18, subDescH + 8);
+
+          if (rowY + subRowH > PAGE_BOTTOM_LIMIT) {
+            doc.addPage();
+            rowY = drawTableHeader(PAGE_MARGIN);
+            doc.font("Helvetica-Oblique").fontSize(8);
+          }
+
+          doc
+            .lineWidth(0.5)
+            .strokeColor("#000")
+            .rect(PAGE_MARGIN, rowY, CONTENT_W, subRowH)
+            .stroke();
+
+          const subY = rowY + 5;
+          doc.font("Helvetica").fontSize(8).fillColor("#666");
+          doc.text("—", cantX, subY, { width: colCantW, align: "center" });
+          doc.font("Helvetica-Oblique").fontSize(8).fillColor("#333");
+          doc.text(subDesc, descX + 6, subY, { width: colDescW - 12 });
+          doc.font("Helvetica").fontSize(8).fillColor("#666");
+          doc.text("—", unitX, subY, { width: colUnitW - 6, align: "right" });
+          doc.text("—", totalX, subY, { width: colTotalW - 6, align: "right" });
+          doc.fillColor("#000");
+
+          rowY += subRowH;
+        }
+        // Restore default font for whatever follows (totals block).
+        doc.font("Helvetica").fontSize(9).fillColor("#000");
+      } else {
+        for (const item of order.items) {
+          // dynamic row height for long descriptions
+          const descHeight = doc.heightOfString(item.name, {
+            width: colDescW - 12,
+          });
+          const thisRowH = Math.max(rowH, descHeight + 10);
+
+          // start a new page if this row would overflow the body area
+          if (rowY + thisRowH > PAGE_BOTTOM_LIMIT) {
+            doc.addPage();
+            rowY = drawTableHeader(PAGE_MARGIN);
+            doc.font("Helvetica").fontSize(9).fillColor("#000");
+          }
+
+          doc
+            .lineWidth(0.5)
+            .strokeColor("#000")
+            .rect(PAGE_MARGIN, rowY, CONTENT_W, thisRowH)
+            .stroke();
+
+          const lineSubtotal = item.price * item.quantity;
+          const cellY = rowY + 6;
+          doc.text(String(item.quantity), cantX, cellY, {
+            width: colCantW,
+            align: "center",
+          });
+          doc.text(item.name, descX + 6, cellY, { width: colDescW - 12 });
+          doc.text(`$ ${fmtMoney(item.price)}`, unitX, cellY, {
+            width: colUnitW - 6,
+            align: "right",
+          });
+          doc.text(`$ ${fmtMoney(lineSubtotal)}`, totalX, cellY, {
+            width: colTotalW - 6,
+            align: "right",
+          });
+
+          rowY += thisRowH;
+        }
       }
 
       // ensure totals + footer fit on the current page; otherwise paginate

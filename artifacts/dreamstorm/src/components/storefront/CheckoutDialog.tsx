@@ -37,7 +37,7 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   // Use a ref to store the dbOrderId synchronously — avoids async state update issues
   // where onPaypalApprove closure could capture a stale null before setState flushes.
   const dbOrderIdRef = useRef<string | null>(null);
-  const { items, totalPrice, clearCart } = useCart();
+  const { items, totalPrice, clearCart, groupAsPlancha } = useCart();
 
   useEffect(() => {
     if (open) {
@@ -124,6 +124,7 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
             productId: it.id,
             quantity: it.quantity,
           })),
+          groupAsPlancha,
         }),
       });
       if (!resp.ok) {
@@ -153,6 +154,7 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           productId: it.id,
           quantity: it.quantity,
         })),
+        groupAsPlancha,
       }),
     });
     if (!resp.ok) {

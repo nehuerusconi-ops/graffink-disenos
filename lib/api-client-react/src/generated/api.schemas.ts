@@ -25,6 +25,8 @@ export interface CheckoutInput {
    * @maxItems 50
    */
   items: CheckoutInputItemsItem[];
+  /** Si es true, el carrito se cobra como una única "plancha agrupada" al precio configurado en /settings. */
+  groupAsPlancha?: boolean;
 }
 
 export interface HealthStatus {
@@ -35,6 +37,24 @@ export interface ErrorResponse {
   error: string;
 }
 
+export interface AppSettings {
+  /**
+   * Precio en ARS para "armar una plancha" (cobrar varios diseños como una sola plancha).
+   * @minimum 0
+   */
+  planchaGroupingPrice: number;
+}
+
+export interface AppSettingsInput {
+  /** @minimum 0 */
+  planchaGroupingPrice?: number;
+}
+
+export interface ProductSpec {
+  key: string;
+  value: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -43,6 +63,9 @@ export interface Product {
   imagePath: string;
   /** @nullable */
   filePath: string | null;
+  /** @nullable */
+  description: string | null;
+  specifications: ProductSpec[];
   isBestSeller: boolean;
   isPublished: boolean;
   createdAt: string;
@@ -58,6 +81,9 @@ export interface ProductInput {
   imagePath: string;
   /** @nullable */
   filePath?: string | null;
+  /** @nullable */
+  description?: string | null;
+  specifications?: ProductSpec[];
   isBestSeller?: boolean;
   isPublished?: boolean;
 }
@@ -70,6 +96,9 @@ export interface ProductUpdate {
   imagePath?: string;
   /** @nullable */
   filePath?: string | null;
+  /** @nullable */
+  description?: string | null;
+  specifications?: ProductSpec[];
   isBestSeller?: boolean;
   isPublished?: boolean;
 }
@@ -118,6 +147,7 @@ export interface Order {
   customerDni?: string | null;
   items: OrderItem[];
   total: number;
+  isPlanchaGrouped: boolean;
   paymentMethod: OrderPaymentMethod;
   status: OrderStatus;
   confirmationSource?: OrderConfirmationSource;

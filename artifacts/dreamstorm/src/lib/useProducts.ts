@@ -11,6 +11,8 @@ function toClientProduct(p: ApiProduct): Product {
     image: p.imagePath,
     filePath: p.filePath,
     isBestSeller: p.isBestSeller,
+    description: p.description ?? null,
+    specifications: p.specifications ?? null,
   };
 }
 

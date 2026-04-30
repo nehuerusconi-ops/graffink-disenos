@@ -8,6 +8,7 @@ import { sendOrderConfirmationEmail, sendWebhookSignatureAlertEmail } from "../l
 import { logger } from "../lib/logger";
 import { requireAdmin } from "../middlewares/requireAdmin";
 import { isValidDniOrCuit } from "../lib/dniCuit";
+import { getPlanchaPriceArs } from "./settings";
 import { z } from "zod";
 
 const router: IRouter = Router();
@@ -128,7 +129,29 @@ const CustomerInfoSchema = z.object({
       "DNI/CUIT inválido (DNI 7-8 dígitos o CUIT 11 dígitos)",
     ),
   items: z.array(CartItemSchema).min(1).max(50),
+  groupAsPlancha: z.boolean().optional(),
 });
+
+/**
+ * Apply the "plancha agrupada" mode to a resolved cart, replacing the per-item
+ * total with the server-side configured plancha price. The original orderItems
+ * are kept (as the snapshot of designs included in the plancha) for the PDF
+ * comprobante and email — only the total changes.
+ */
+async function applyPlanchaModeIfRequested(
+  resolved: { orderItems: OrderItem[]; total: number },
+  groupAsPlancha: boolean | undefined,
+): Promise<{ orderItems: OrderItem[]; total: number; isPlanchaGrouped: boolean }> {
+  if (!groupAsPlancha) {
+    return { ...resolved, isPlanchaGrouped: false };
+  }
+  const planchaPrice = await getPlanchaPriceArs();
+  return {
+    orderItems: resolved.orderItems,
+    total: planchaPrice,
+    isPlanchaGrouped: true,
+  };
+}
 
 // Resolve cart items from DB, returning authoritative products with server-side prices.
 // Rejects unknown productIds and unpublished products.
@@ -172,15 +195,18 @@ router.post("/payments/mercadopago/preference", async (req, res): Promise<void> 
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { customerName, customerEmail, customerDni, items: cartItems } = parsed.data;
+  const { customerName, customerEmail, customerDni, items: cartItems, groupAsPlancha } = parsed.data;
 
   try {
-    const resolved = await resolveCartItems(cartItems);
-    if ("error" in resolved) {
-      res.status(422).json({ error: resolved.error });
+    const resolvedRaw = await resolveCartItems(cartItems);
+    if ("error" in resolvedRaw) {
+      res.status(422).json({ error: resolvedRaw.error });
       return;
     }
-    const { orderItems, total } = resolved;
+    const { orderItems, total, isPlanchaGrouped } = await applyPlanchaModeIfRequested(
+      resolvedRaw,
+      groupAsPlancha,
+    );
 
     // Create a pending order first to store orderId in MP external_reference
     const [order] = await db
@@ -191,6 +217,7 @@ router.post("/payments/mercadopago/preference", async (req, res): Promise<void> 
         customerDni: customerDni && customerDni.length > 0 ? customerDni : null,
         items: orderItems,
         total,
+        isPlanchaGrouped,
         paymentMethod: "mercadopago",
         status: "pending",
       })
@@ -198,15 +225,30 @@ router.post("/payments/mercadopago/preference", async (req, res): Promise<void> 
 
     const preference = new Preference(mpClient);
 
+    // When the cart is sold as a single "plancha agrupada", MP must see a single
+    // line item at the plancha price (not the sum of per-design prices) so the
+    // gateway charges the correct amount and the webhook amount-check passes.
+    const mpItems = isPlanchaGrouped
+      ? [
+          {
+            id: "plancha-agrupada",
+            title: `Plancha agrupada (${orderItems.length} diseño${orderItems.length > 1 ? "s" : ""})`,
+            quantity: 1,
+            unit_price: total,
+            currency_id: "ARS",
+          },
+        ]
+      : orderItems.map((it) => ({
+          id: it.productId,
+          title: it.name,
+          quantity: it.quantity,
+          unit_price: it.price,
+          currency_id: "ARS",
+        }));
+
     const prefBody: Parameters<typeof preference.create>[0]["body"] = {
       external_reference: order.id,
-      items: orderItems.map((it) => ({
-        id: it.productId,
-        title: it.name,
-        quantity: it.quantity,
-        unit_price: it.price,
-        currency_id: "ARS",
-      })),
+      items: mpItems,
     };
 
     // back_urls / auto_return / notification_url require the domain to be
@@ -464,15 +506,18 @@ router.post("/payments/paypal/create-order", async (req, res): Promise<void> => 
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { customerName, customerEmail, customerDni, items: cartItems } = parsed.data;
+  const { customerName, customerEmail, customerDni, items: cartItems, groupAsPlancha } = parsed.data;
 
   try {
-    const resolved = await resolveCartItems(cartItems);
-    if ("error" in resolved) {
-      res.status(422).json({ error: resolved.error });
+    const resolvedRaw = await resolveCartItems(cartItems);
+    if ("error" in resolvedRaw) {
+      res.status(422).json({ error: resolvedRaw.error });
       return;
     }
-    const { orderItems, total } = resolved;
+    const { orderItems, total, isPlanchaGrouped } = await applyPlanchaModeIfRequested(
+      resolvedRaw,
+      groupAsPlancha,
+    );
 
     const [order] = await db
       .insert(ordersTable)
@@ -482,6 +527,7 @@ router.post("/payments/paypal/create-order", async (req, res): Promise<void> => 
         customerDni: customerDni && customerDni.length > 0 ? customerDni : null,
         items: orderItems,
         total,
+        isPlanchaGrouped,
         paymentMethod: "paypal",
         status: "pending",
       })
@@ -495,6 +541,10 @@ router.post("/payments/paypal/create-order", async (req, res): Promise<void> => 
     const { rate: arsToUsd } = await getArsToUsdRate();
     const usdAmount = (total / arsToUsd).toFixed(2);
 
+    const description = isPlanchaGrouped
+      ? `GraffInk Diseños — Plancha agrupada (${orderItems.length} diseño${orderItems.length > 1 ? "s" : ""})`
+      : `GraffInk Diseños — ${orderItems.length} diseño${orderItems.length > 1 ? "s" : ""}`;
+
     const ppResp = await fetch(`${base}/v2/checkout/orders`, {
       method: "POST",
       headers: {
@@ -506,7 +556,7 @@ router.post("/payments/paypal/create-order", async (req, res): Promise<void> => 
         purchase_units: [
           {
             reference_id: order.id,
-            description: `GraffInk Diseños — ${orderItems.length} diseño${orderItems.length > 1 ? "s" : ""}`,
+            description,
             amount: {
               currency_code: "USD",
               value: usdAmount,

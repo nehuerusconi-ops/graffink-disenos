@@ -1,11 +1,26 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useCart } from "./CartContext";
-import { Trash2, ShoppingBag } from "lucide-react";
+import { Trash2, ShoppingBag, Layers } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 export function CartSheet({ onCheckout }: { onCheckout: () => void }) {
-  const { items, removeItem, totalItems, totalPrice, isCartOpen, setIsCartOpen } = useCart();
+  const {
+    items,
+    removeItem,
+    totalItems,
+    totalPrice,
+    itemsTotal,
+    isCartOpen,
+    setIsCartOpen,
+    groupAsPlancha,
+    setGroupAsPlancha,
+    planchaPrice,
+  } = useCart();
+  const planchaSavings = itemsTotal - planchaPrice;
+  const planchaIsCheaper = planchaSavings > 0;
 
   const handleCheckoutClick = () => {
     setIsCartOpen(false);
@@ -79,15 +94,50 @@ export function CartSheet({ onCheckout }: { onCheckout: () => void }) {
               </ScrollArea>
               
               <div className="p-6 border-t border-white/10 bg-[#0a0a0a]">
-                <div className="flex items-center justify-between mb-6">
-                  <span className="text-white/80 font-bold uppercase text-sm">Total</span>
+                <div className="mb-4 p-3 rounded-sm border border-primary/30 bg-primary/5">
+                  <div className="flex items-center justify-between gap-3">
+                    <Label
+                      htmlFor="group-as-plancha"
+                      className="flex items-start gap-2 cursor-pointer flex-1"
+                    >
+                      <Layers className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                      <div className="space-y-0.5">
+                        <div className="text-sm font-bold text-white">
+                          Agrupar como plancha — ${planchaPrice.toLocaleString("es-AR")}
+                        </div>
+                        <div className="text-[11px] text-white/50">
+                          {planchaIsCheaper
+                            ? `Ahorrá $${planchaSavings.toLocaleString("es-AR")} llevando todos los diseños en una sola plancha.`
+                            : "Cobramos un único precio por toda la plancha, sin importar la cantidad de diseños."}
+                        </div>
+                      </div>
+                    </Label>
+                    <Switch
+                      id="group-as-plancha"
+                      checked={groupAsPlancha}
+                      onCheckedChange={setGroupAsPlancha}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-white/80 font-bold uppercase text-sm">
+                    {groupAsPlancha ? "Total plancha" : "Total"}
+                  </span>
                   <span className="text-2xl font-black font-mono text-white">
                     ${totalPrice.toLocaleString("es-AR")}
                   </span>
                 </div>
-                <Button 
+                {groupAsPlancha && (
+                  <div className="flex items-center justify-between mb-4 text-xs text-white/50">
+                    <span>Subtotal sin agrupar</span>
+                    <span className="font-mono line-through">
+                      ${itemsTotal.toLocaleString("es-AR")}
+                    </span>
+                  </div>
+                )}
+                <Button
                   onClick={handleCheckoutClick}
-                  className="w-full h-14 text-lg font-bold bg-primary text-white hover:bg-primary/90"
+                  className="w-full h-14 text-lg font-bold bg-primary text-white hover:bg-primary/90 mt-2"
                 >
                   Finalizar compra
                 </Button>

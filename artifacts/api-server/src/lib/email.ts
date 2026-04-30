@@ -42,6 +42,26 @@ function buildDownloadLinks(items: Order["items"]): string {
     .join("");
 }
 
+/**
+ * Build a single "Plancha agrupada" header row that announces the bundled
+ * purchase, followed by the per-design download rows. Used when an order was
+ * checked out with the "Agrupar como plancha" toggle (order.isPlanchaGrouped).
+ */
+function buildPlanchaHeaderRow(items: Order["items"], total: number): string {
+  const count = items.length;
+  return `
+      <tr>
+        <td colspan="3" style="padding:14px 16px; background:#0a1628; border-bottom:1px solid #1e3a5f;">
+          <div style="color:#3b82f6; font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; margin-bottom:4px;">Plancha agrupada</div>
+          <div style="color:#fff; font-size:15px; font-weight:700;">
+            ${count} diseño${count > 1 ? "s" : ""} en una sola plancha
+            <span style="color:#aaa; font-weight:400; font-size:13px;">— $${total.toLocaleString("es-AR")} ARS</span>
+          </div>
+          <div style="color:#888; font-size:12px; margin-top:6px;">Descargá cada PNG individual desde los enlaces de abajo.</div>
+        </td>
+      </tr>`;
+}
+
 function formatMethod(method: string): string {
   const map: Record<string, string> = {
     mercadopago: "Mercado Pago",
@@ -209,6 +229,7 @@ export async function sendOrderConfirmationEmail(order: Order): Promise<void> {
                 </tr>
               </thead>
               <tbody>
+                ${order.isPlanchaGrouped ? buildPlanchaHeaderRow(order.items, order.total) : ""}
                 ${buildDownloadLinks(order.items)}
               </tbody>
             </table>

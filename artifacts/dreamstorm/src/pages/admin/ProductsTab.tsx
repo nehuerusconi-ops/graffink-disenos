@@ -18,9 +18,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { CATEGORIES, Category } from "@/data/products";
+import { Textarea } from "@/components/ui/textarea";
+import { CATEGORIES, Category, type ProductSpec } from "@/data/products";
 import { toast } from "sonner";
-import { Loader2, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { Loader2, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
 
 interface FormState {
   id: string;
@@ -31,6 +32,8 @@ interface FormState {
   filePath: string | null;
   isBestSeller: boolean;
   isPublished: boolean;
+  description: string;
+  specifications: ProductSpec[];
 }
 
 const EMPTY_FORM: FormState = {
@@ -42,6 +45,8 @@ const EMPTY_FORM: FormState = {
   filePath: null,
   isBestSeller: false,
   isPublished: true,
+  description: "",
+  specifications: [],
 };
 
 function slugify(input: string): string {
@@ -90,6 +95,8 @@ export function ProductsTab() {
       filePath: p.filePath,
       isBestSeller: p.isBestSeller,
       isPublished: p.isPublished,
+      description: p.description ?? "",
+      specifications: (p.specifications ?? []) as ProductSpec[],
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -128,6 +135,11 @@ export function ProductsTab() {
       return;
     }
 
+    const cleanedSpecs = form.specifications
+      .map((s) => ({ key: s.key.trim(), value: s.value.trim() }))
+      .filter((s) => s.key.length > 0 && s.value.length > 0);
+    const cleanedDescription = form.description.trim();
+
     try {
       if (isEditing && editingId) {
         await updateMut.mutateAsync({
@@ -140,6 +152,8 @@ export function ProductsTab() {
             filePath: form.filePath,
             isBestSeller: form.isBestSeller,
             isPublished: form.isPublished,
+            description: cleanedDescription.length > 0 ? cleanedDescription : null,
+            specifications: cleanedSpecs,
           },
         });
         toast.success("Diseño actualizado");
@@ -159,6 +173,8 @@ export function ProductsTab() {
             filePath: form.filePath ?? undefined,
             isBestSeller: form.isBestSeller,
             isPublished: form.isPublished,
+            description: cleanedDescription.length > 0 ? cleanedDescription : undefined,
+            specifications: cleanedSpecs.length > 0 ? cleanedSpecs : undefined,
           },
         });
         toast.success("Diseño creado");
@@ -299,6 +315,98 @@ export function ProductsTab() {
                   />
                 </label>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">Descripción (opcional)</Label>
+              <Textarea
+                id="description"
+                value={form.description}
+                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                placeholder="Diseño DTF de alta calidad, listo para estampar..."
+                rows={3}
+                maxLength={1000}
+              />
+              <p className="text-[10px] text-white/40 text-right">
+                {form.description.length}/1000
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Especificaciones (opcional)</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs"
+                  onClick={() =>
+                    setForm((f) => ({
+                      ...f,
+                      specifications: [...f.specifications, { key: "", value: "" }],
+                    }))
+                  }
+                >
+                  <Plus className="h-3 w-3 mr-1" /> Agregar
+                </Button>
+              </div>
+              {form.specifications.length === 0 ? (
+                <p className="text-[11px] text-white/40">
+                  Ej: Tamaño · 30x40 cm, Tipo · DTF, Resolución · 300 dpi.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {form.specifications.map((spec, idx) => (
+                    <div key={idx} className="flex gap-2 items-start">
+                      <Input
+                        value={spec.key}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setForm((f) => ({
+                            ...f,
+                            specifications: f.specifications.map((s, i) =>
+                              i === idx ? { ...s, key: v } : s,
+                            ),
+                          }));
+                        }}
+                        placeholder="Tamaño"
+                        className="flex-1"
+                        maxLength={40}
+                      />
+                      <Input
+                        value={spec.value}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setForm((f) => ({
+                            ...f,
+                            specifications: f.specifications.map((s, i) =>
+                              i === idx ? { ...s, value: v } : s,
+                            ),
+                          }));
+                        }}
+                        placeholder="30x40 cm"
+                        className="flex-1"
+                        maxLength={80}
+                      />
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-9 w-9 shrink-0"
+                        onClick={() =>
+                          setForm((f) => ({
+                            ...f,
+                            specifications: f.specifications.filter((_, i) => i !== idx),
+                          }))
+                        }
+                        aria-label="Quitar especificación"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="flex items-center justify-between pt-2">

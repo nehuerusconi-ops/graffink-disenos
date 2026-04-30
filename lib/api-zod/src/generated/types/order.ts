@@ -18,6 +18,7 @@ export interface Order {
   customerDni?: string | null;
   items: OrderItem[];
   total: number;
+  isPlanchaGrouped: boolean;
   paymentMethod: OrderPaymentMethod;
   status: OrderStatus;
   confirmationSource?: OrderConfirmationSource;

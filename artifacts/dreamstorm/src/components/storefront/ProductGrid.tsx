@@ -1,8 +1,12 @@
 import { useState, useMemo } from "react";
-import { CATEGORIES, Category, Product } from "@/data/products";
+import { CATEGORIES, Category, Product, PLANCHA_ARMADA_CATEGORY } from "@/data/products";
 import { ProductCard } from "./ProductCard";
 import { Input } from "@/components/ui/input";
 import { Search, Loader2 } from "lucide-react";
+
+// Categories shown in the main storefront filter bar. "Plancha armada" is
+// excluded — those products live in their own dedicated section.
+const STOREFRONT_CATEGORIES = CATEGORIES.filter((c) => c !== PLANCHA_ARMADA_CATEGORY);
 
 export function ProductGrid({
   products,
@@ -18,11 +22,14 @@ export function ProductGrid({
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredProducts = useMemo(() => {
-    return products.filter((product) => {
-      const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = selectedCategory === "All" || product.category === selectedCategory;
-      return matchesSearch && matchesCategory;
-    });
+    return products
+      // Hide pre-built planchas from the main grid; they live in their own section.
+      .filter((p) => p.category !== PLANCHA_ARMADA_CATEGORY)
+      .filter((product) => {
+        const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesCategory = selectedCategory === "All" || product.category === selectedCategory;
+        return matchesSearch && matchesCategory;
+      });
   }, [products, searchQuery, selectedCategory]);
 
   return (
@@ -44,7 +51,7 @@ export function ProductGrid({
               >
                 Todos
               </button>
-              {CATEGORIES.map((cat) => (
+              {STOREFRONT_CATEGORIES.map((cat) => (
                 <button
                   key={cat}
                   onClick={() => onCategorySelect(cat)}

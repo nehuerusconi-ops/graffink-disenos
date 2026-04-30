@@ -25,6 +25,13 @@ export const ListProductsResponseItem = zod.object({
   price: zod.number(),
   imagePath: zod.string(),
   filePath: zod.string().nullable(),
+  description: zod.string().nullable(),
+  specifications: zod.array(
+    zod.object({
+      key: zod.string(),
+      value: zod.string(),
+    }),
+  ),
   isBestSeller: zod.boolean(),
   isPublished: zod.boolean(),
   createdAt: zod.coerce.date(),
@@ -44,6 +51,15 @@ export const CreateProductBody = zod.object({
   price: zod.number().min(createProductBodyPriceMin),
   imagePath: zod.string(),
   filePath: zod.string().nullish(),
+  description: zod.string().nullish(),
+  specifications: zod
+    .array(
+      zod.object({
+        key: zod.string(),
+        value: zod.string(),
+      }),
+    )
+    .optional(),
   isBestSeller: zod.boolean().optional(),
   isPublished: zod.boolean().optional(),
 });
@@ -62,6 +78,13 @@ export const GetProductResponse = zod.object({
   price: zod.number(),
   imagePath: zod.string(),
   filePath: zod.string().nullable(),
+  description: zod.string().nullable(),
+  specifications: zod.array(
+    zod.object({
+      key: zod.string(),
+      value: zod.string(),
+    }),
+  ),
   isBestSeller: zod.boolean(),
   isPublished: zod.boolean(),
   createdAt: zod.coerce.date(),
@@ -83,6 +106,15 @@ export const UpdateProductBody = zod.object({
   price: zod.number().min(updateProductBodyPriceMin).optional(),
   imagePath: zod.string().optional(),
   filePath: zod.string().nullish(),
+  description: zod.string().nullish(),
+  specifications: zod
+    .array(
+      zod.object({
+        key: zod.string(),
+        value: zod.string(),
+      }),
+    )
+    .optional(),
   isBestSeller: zod.boolean().optional(),
   isPublished: zod.boolean().optional(),
 });
@@ -94,6 +126,13 @@ export const UpdateProductResponse = zod.object({
   price: zod.number(),
   imagePath: zod.string(),
   filePath: zod.string().nullable(),
+  description: zod.string().nullable(),
+  specifications: zod.array(
+    zod.object({
+      key: zod.string(),
+      value: zod.string(),
+    }),
+  ),
   isBestSeller: zod.boolean(),
   isPublished: zod.boolean(),
   createdAt: zod.coerce.date(),
@@ -126,6 +165,7 @@ export const ListOrdersResponseItem = zod.object({
     }),
   ),
   total: zod.number(),
+  isPlanchaGrouped: zod.boolean(),
   paymentMethod: zod.enum(["mercadopago", "uala", "paypal"]),
   status: zod.enum(["pending", "paid", "failed", "refunded"]),
   confirmationSource: zod
@@ -216,6 +256,7 @@ export const GetOrderResponse = zod.object({
     }),
   ),
   total: zod.number(),
+  isPlanchaGrouped: zod.boolean(),
   paymentMethod: zod.enum(["mercadopago", "uala", "paypal"]),
   status: zod.enum(["pending", "paid", "failed", "refunded"]),
   confirmationSource: zod
@@ -269,6 +310,12 @@ export const CreateMercadoPagoPreferenceBody = zod.object({
     )
     .min(1)
     .max(createMercadoPagoPreferenceBodyItemsMax),
+  groupAsPlancha: zod
+    .boolean()
+    .optional()
+    .describe(
+      'Si es true, el carrito se cobra como una única \"plancha agrupada\" al precio configurado en \/settings.',
+    ),
 });
 
 export const CreateMercadoPagoPreferenceResponse = zod.object({
@@ -308,6 +355,12 @@ export const CreatePaypalOrderBody = zod.object({
     )
     .min(1)
     .max(createPaypalOrderBodyItemsMax),
+  groupAsPlancha: zod
+    .boolean()
+    .optional()
+    .describe(
+      'Si es true, el carrito se cobra como una única \"plancha agrupada\" al precio configurado en \/settings.',
+    ),
 });
 
 export const CreatePaypalOrderResponse = zod.object({
@@ -339,6 +392,7 @@ export const CapturePaypalOrderResponse = zod.object({
     }),
   ),
   total: zod.number(),
+  isPlanchaGrouped: zod.boolean(),
   paymentMethod: zod.enum(["mercadopago", "uala", "paypal"]),
   status: zod.enum(["pending", "paid", "failed", "refunded"]),
   confirmationSource: zod
@@ -365,4 +419,41 @@ export const GetOrderInvoiceParams = zod.object({
 
 export const GetOrderInvoiceResponse = zod.object({
   invoiceNumber: zod.number(),
+});
+
+/**
+ * @summary Public app settings (e.g. plancha grouping price)
+ */
+export const getAppSettingsResponsePlanchaGroupingPriceMin = 0;
+
+export const GetAppSettingsResponse = zod.object({
+  planchaGroupingPrice: zod
+    .number()
+    .min(getAppSettingsResponsePlanchaGroupingPriceMin)
+    .describe(
+      'Precio en ARS para \"armar una plancha\" (cobrar varios diseños como una sola plancha).',
+    ),
+});
+
+/**
+ * @summary Update editable app settings (admin)
+ */
+export const updateAppSettingsBodyPlanchaGroupingPriceMin = 0;
+
+export const UpdateAppSettingsBody = zod.object({
+  planchaGroupingPrice: zod
+    .number()
+    .min(updateAppSettingsBodyPlanchaGroupingPriceMin)
+    .optional(),
+});
+
+export const updateAppSettingsResponsePlanchaGroupingPriceMin = 0;
+
+export const UpdateAppSettingsResponse = zod.object({
+  planchaGroupingPrice: zod
+    .number()
+    .min(updateAppSettingsResponsePlanchaGroupingPriceMin)
+    .describe(
+      'Precio en ARS para \"armar una plancha\" (cobrar varios diseños como una sola plancha).',
+    ),
 });

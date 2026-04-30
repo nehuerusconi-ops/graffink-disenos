@@ -18,6 +18,8 @@ tags:
     description: Sales orders and invoicing
   - name: payments
     description: Payment gateway integrations (Mercado Pago, PayPal, Ualá Bis)
+  - name: settings
+    description: Editable app-level settings (e.g. plancha grouping price)
 paths:
   /healthz:
     get:
@@ -462,6 +464,50 @@ paths:
         "404":
           description: Order not found or not paid
 
+  /settings:
+    get:
+      operationId: getAppSettings
+      tags: [settings]
+      summary: Public app settings (e.g. plancha grouping price)
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppSettings"
+    patch:
+      operationId: updateAppSettings
+      tags: [settings]
+      summary: Update editable app settings (admin)
+      security:
+        - clerkAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppSettingsInput"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppSettings"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /webhooks/mercadopago:
     post:
       operationId: mercadoPagoWebhook
@@ -503,6 +549,9 @@ components:
                 minimum: 1
                 maximum: 50
             required: [productId, quantity]
+        groupAsPlancha:
+          type: boolean
+          description: Si es true, el carrito se cobra como una única "plancha agrupada" al precio configurado en /settings.
       required: [customerName, customerEmail, items]
 
     HealthStatus:
@@ -521,6 +570,31 @@ components:
       required:
         - error
 
+    AppSettings:
+      type: object
+      properties:
+        planchaGroupingPrice:
+          type: integer
+          minimum: 0
+          description: Precio en ARS para "armar una plancha" (cobrar varios diseños como una sola plancha).
+      required: [planchaGroupingPrice]
+
+    AppSettingsInput:
+      type: object
+      properties:
+        planchaGroupingPrice:
+          type: integer
+          minimum: 0
+
+    ProductSpec:
+      type: object
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+      required: [key, value]
+
     Product:
       type: object
       properties:
@@ -536,6 +610,12 @@ components:
           type: string
         filePath:
           type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        specifications:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductSpec"
         isBestSeller:
           type: boolean
         isPublished:
@@ -553,6 +633,8 @@ components:
         - price
         - imagePath
         - filePath
+        - description
+        - specifications
         - isBestSeller
         - isPublished
         - createdAt
@@ -574,6 +656,12 @@ components:
           type: string
         filePath:
           type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        specifications:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductSpec"
         isBestSeller:
           type: boolean
         isPublished:
@@ -599,6 +687,12 @@ components:
           type: string
         filePath:
           type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        specifications:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductSpec"
         isBestSeller:
           type: boolean
         isPublished:
@@ -644,6 +738,8 @@ components:
             $ref: "#/components/schemas/OrderItem"
         total:
           type: integer
+        isPlanchaGrouped:
+          type: boolean
         paymentMethod:
           type: string
           enum: [mercadopago, uala, paypal]
@@ -664,6 +760,7 @@ components:
         - customerEmail
         - items
         - total
+        - isPlanchaGrouped
         - paymentMethod
         - status
         - createdAt

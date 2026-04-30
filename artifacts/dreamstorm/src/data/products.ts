@@ -1,4 +1,16 @@
-export type Category = "Streetwear" | "Anime" | "Frases" | "Deportes" | "Vintage" | "Infantil";
+export type Category =
+  | "Streetwear"
+  | "Anime"
+  | "Frases"
+  | "Deportes"
+  | "Vintage"
+  | "Infantil"
+  | "Plancha armada";
+
+export interface ProductSpec {
+  key: string;
+  value: string;
+}
 
 export interface Product {
   id: string;
@@ -8,6 +20,8 @@ export interface Product {
   image: string;
   filePath?: string | null;
   isBestSeller?: boolean;
+  description?: string | null;
+  specifications?: ProductSpec[] | null;
 }
 
 export const CATEGORIES: Category[] = [
@@ -16,8 +30,11 @@ export const CATEGORIES: Category[] = [
   "Frases",
   "Deportes",
   "Vintage",
-  "Infantil"
+  "Infantil",
+  "Plancha armada",
 ];
+
+export const PLANCHA_ARMADA_CATEGORY: Category = "Plancha armada";
 
 export const PRODUCTS: Product[] = [
   {

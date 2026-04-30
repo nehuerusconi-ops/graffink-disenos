@@ -18,4 +18,6 @@ export interface CheckoutInput {
    * @maxItems 50
    */
   items: CheckoutInputItemsItem[];
+  /** Si es true, el carrito se cobra como una única "plancha agrupada" al precio configurado en /settings. */
+  groupAsPlancha?: boolean;
 }

@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ProductSpec } from "./productSpec";
 
 export interface ProductInput {
   id: string;
@@ -15,6 +16,9 @@ export interface ProductInput {
   imagePath: string;
   /** @nullable */
   filePath?: string | null;
+  /** @nullable */
+  description?: string | null;
+  specifications?: ProductSpec[];
   isBestSeller?: boolean;
   isPublished?: boolean;
 }

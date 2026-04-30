@@ -4,6 +4,7 @@ import { Hero } from "@/components/storefront/Hero";
 import { DesignMarquee } from "@/components/storefront/DesignMarquee";
 import { CategoryTiles } from "@/components/storefront/CategoryTiles";
 import { BestSellers } from "@/components/storefront/BestSellers";
+import { PlanchasArmadas } from "@/components/storefront/PlanchasArmadas";
 import { ProductGrid } from "@/components/storefront/ProductGrid";
 import { HowItWorks } from "@/components/storefront/HowItWorks";
 import { CustomDesign } from "@/components/storefront/CustomDesign";
@@ -26,6 +27,7 @@ export default function Home() {
       <DesignMarquee products={products} />
       <CategoryTiles onSelectCategory={setSelectedCategory} />
       <BestSellers products={products} />
+      <PlanchasArmadas products={products} />
       <ProductGrid
         products={products}
         isLoading={isLoading}

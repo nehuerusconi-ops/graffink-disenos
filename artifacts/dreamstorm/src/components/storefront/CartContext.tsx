@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Product } from "@/data/products";
 import { toast } from "sonner";
+import { useGetAppSettings } from "@workspace/api-client-react";
 
 interface CartItem extends Product {
   quantity: number;
@@ -12,9 +13,16 @@ interface CartContextType {
   removeItem: (productId: string) => void;
   clearCart: () => void;
   totalItems: number;
+  /** Suma de items por su precio individual (sin agrupar). */
+  itemsTotal: number;
+  /** Total efectivo a cobrar — si groupAsPlancha=true, equivale a planchaPrice. */
   totalPrice: number;
   isCartOpen: boolean;
   setIsCartOpen: (isOpen: boolean) => void;
+  groupAsPlancha: boolean;
+  setGroupAsPlancha: (v: boolean) => void;
+  /** Precio único de la plancha agrupada (ARS), traído del backend. */
+  planchaPrice: number;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -40,12 +48,27 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return [];
     }
   });
-  
+
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [groupAsPlancha, setGroupAsPlancha] = useState(false);
+
+  // Reset the plancha-grouping flag whenever the cart is emptied so the next
+  // shopping session starts in the default per-item pricing mode.
+  useEffect(() => {
+    if (items.length === 0 && groupAsPlancha) {
+      setGroupAsPlancha(false);
+    }
+  }, [items.length, groupAsPlancha]);
 
   useEffect(() => {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
   }, [items]);
+
+  // Fetch the configurable plancha price once; all consumers reuse it via the
+  // shared React Query cache (stale-while-revalidate). Falls back to 1000 ARS
+  // (matches DEFAULT_PLANCHA_PRICE_ARS in the DB schema) if the request fails.
+  const settingsQuery = useGetAppSettings();
+  const planchaPrice = settingsQuery.data?.planchaGroupingPrice ?? 1000;
 
   const addItem = (product: Product) => {
     setItems((prev) => {
@@ -66,10 +89,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clearCart = () => {
     setItems([]);
+    setGroupAsPlancha(false);
   };
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
-  const totalPrice = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const itemsTotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const totalPrice = groupAsPlancha && items.length > 0 ? planchaPrice : itemsTotal;
 
   return (
     <CartContext.Provider
@@ -79,9 +104,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
         removeItem,
         clearCart,
         totalItems,
+        itemsTotal,
         totalPrice,
         isCartOpen,
         setIsCartOpen,
+        groupAsPlancha,
+        setGroupAsPlancha,
+        planchaPrice,
       }}
     >
       {children}

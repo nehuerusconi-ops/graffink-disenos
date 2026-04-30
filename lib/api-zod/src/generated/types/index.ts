@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./appSettings";
+export * from "./appSettingsInput";
 export * from "./capturePaypalOrderBody";
 export * from "./checkoutInput";
 export * from "./checkoutInputItemsItem";
@@ -28,6 +30,7 @@ export * from "./orderStatsTopProductsItem";
 export * from "./orderStatus";
 export * from "./product";
 export * from "./productInput";
+export * from "./productSpec";
 export * from "./productUpdate";
 export * from "./requestUploadUrl200";
 export * from "./requestUploadUrlBody";
