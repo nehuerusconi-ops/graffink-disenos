@@ -43,6 +43,29 @@ function buildDownloadLinks(items: Order["items"]): string {
 }
 
 /**
+ * Buyer-facing item rows for "Armar plancha" orders. No download buttons —
+ * those would lead nowhere because the deliverable (the assembled plancha PNG)
+ * doesn't exist yet. Replaced with a "En preparación" badge so the buyer sees
+ * exactly which designs are part of their plancha.
+ */
+function buildPlanchaPendingItemRows(items: Order["items"]): string {
+  return items
+    .map(
+      (item) => `
+      <tr>
+        <td style="padding:10px 16px; border-bottom:1px solid #222; color:#fff; font-size:14px;">${item.name}</td>
+        <td style="padding:10px 16px; border-bottom:1px solid #222; color:#aaa; font-size:14px; text-align:center;">${item.quantity}</td>
+        <td style="padding:10px 16px; border-bottom:1px solid #222; text-align:right;">
+          <span style="display:inline-block; background:#1e3a5f; color:#3b82f6; font-weight:700; padding:6px 14px; border-radius:4px; font-size:12px; letter-spacing:1px; text-transform:uppercase;">
+            En preparación
+          </span>
+        </td>
+      </tr>`,
+    )
+    .join("");
+}
+
+/**
  * Build a single "Armar plancha" service-fee row appended after the per-design
  * download rows. Used when an order was checked out with the "Armar plancha"
  * toggle (order.isPlanchaGrouped). The fee is derived from the persisted
@@ -401,6 +424,62 @@ export async function sendOrderConfirmationEmail(order: Order): Promise<void> {
     order.total,
   );
 
+  // Plancha-grouped orders are NOT instantly deliverable — the admin has to
+  // manually compose the assembled plancha PNG from the selected designs and
+  // email it to the buyer. The email below adapts both the intro copy and the
+  // per-item rows to communicate this clearly: no download buttons, an
+  // explicit "24hs" delivery promise, and the Mis Compras callout is hidden
+  // until the assembled file is delivered.
+  const isPlancha = order.isPlanchaGrouped && !isLegacyPlanchaOrder(order);
+  const introHtml = isPlancha
+    ? `<p style="color:#aaa; font-size:15px; margin:0 0 8px 0;">Hola <strong style="color:#fff;">${order.customerName}</strong>,</p>
+            <p style="color:#aaa; font-size:15px; margin:0 0 16px 0;">Recibimos tu pago. Tu plancha está siendo armada manualmente con todos los diseños que elegiste.</p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a1628; border:1px solid #1e3a5f; border-radius:8px; margin-bottom:24px;">
+              <tr><td style="padding:14px 18px;">
+                <div style="color:#3b82f6; font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; margin-bottom:4px;">Entrega</div>
+                <div style="color:#fff; font-size:15px; font-weight:700;">Te vamos a enviar la plancha lista por email dentro de las próximas 24 horas hábiles.</div>
+              </td></tr>
+            </table>`
+    : `<p style="color:#aaa; font-size:15px; margin:0 0 8px 0;">Hola <strong style="color:#fff;">${order.customerName}</strong>,</p>
+            <p style="color:#aaa; font-size:15px; margin:0 0 32px 0;">Tu compra fue confirmada. Descargá tus diseños desde los botones de abajo.</p>`;
+
+  const itemsTableHeaderLabel = isPlancha ? "Estado" : "Descarga";
+  const itemsTableBody = isPlancha
+    ? `${buildPlanchaPendingItemRows(order.items)}
+                ${buildPlanchaServiceRow(order.items, order.total)}`
+    : `${
+        isLegacyPlanchaOrder(order)
+          ? `
+                <tr>
+                  <td colspan="3" style="padding:14px 16px; background:#0a1628; border-bottom:1px solid #1e3a5f;">
+                    <div style="color:#3b82f6; font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; margin-bottom:4px;">Plancha agrupada (precio único)</div>
+                    <div style="color:#fff; font-size:15px; font-weight:700;">
+                      ${order.items.length} diseño${order.items.length > 1 ? "s" : ""} en una sola plancha
+                      <span style="color:#aaa; font-weight:400; font-size:13px;">— $${order.total.toLocaleString("es-AR")} ARS</span>
+                    </div>
+                    <div style="color:#888; font-size:12px; margin-top:6px;">Descargá cada PNG individual desde los enlaces de abajo.</div>
+                  </td>
+                </tr>`
+          : ""
+      }
+                ${buildDownloadLinks(order.items)}`;
+
+  const misComprasCalloutHtml = isPlancha
+    ? ""
+    : `<table width="100%" cellpadding="0" cellspacing="0" style="background:#0a1628; border:1px solid #1e3a5f; border-radius:8px; margin-bottom:32px;">
+              <tr>
+                <td style="padding:16px 20px;">
+                  <p style="color:#aaa; font-size:13px; margin:0 0 10px 0; line-height:1.5;">
+                    Podés volver a descargar tus diseños en cualquier momento desde nuestra página <strong style="color:#fff;">Mis Compras</strong>.
+                  </p>
+                  <a href="https://${DOMAIN}/mis-compras"
+                     style="display:inline-block; background:transparent; color:#3b82f6; font-weight:700; padding:6px 0; text-decoration:none; font-size:13px; border-bottom:1px solid #3b82f6;">
+                    Ir a Mis Compras →
+                  </a>
+                </td>
+              </tr>
+            </table>`;
+
   const html = `
 <!DOCTYPE html>
 <html lang="es">
@@ -430,8 +509,7 @@ export async function sendOrderConfirmationEmail(order: Order): Promise<void> {
         <!-- Body -->
         <tr>
           <td style="background:#111; padding:32px 40px;">
-            <p style="color:#aaa; font-size:15px; margin:0 0 8px 0;">Hola <strong style="color:#fff;">${order.customerName}</strong>,</p>
-            <p style="color:#aaa; font-size:15px; margin:0 0 32px 0;">Tu compra fue confirmada. Descargá tus diseños desde los botones de abajo.</p>
+            ${introHtml}
 
             <!-- Items table -->
             <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #222; border-radius:8px; overflow:hidden; margin-bottom:32px;">
@@ -439,48 +517,15 @@ export async function sendOrderConfirmationEmail(order: Order): Promise<void> {
                 <tr style="background:#1a1a1a;">
                   <th style="padding:10px 16px; text-align:left; color:#666; font-size:11px; letter-spacing:2px; text-transform:uppercase; font-weight:700;">Diseño</th>
                   <th style="padding:10px 16px; text-align:center; color:#666; font-size:11px; letter-spacing:2px; text-transform:uppercase; font-weight:700;">Cant.</th>
-                  <th style="padding:10px 16px; text-align:right; color:#666; font-size:11px; letter-spacing:2px; text-transform:uppercase; font-weight:700;">Descarga</th>
+                  <th style="padding:10px 16px; text-align:right; color:#666; font-size:11px; letter-spacing:2px; text-transform:uppercase; font-weight:700;">${itemsTableHeaderLabel}</th>
                 </tr>
               </thead>
               <tbody>
-                ${
-                  isLegacyPlanchaOrder(order)
-                    ? `
-                <tr>
-                  <td colspan="3" style="padding:14px 16px; background:#0a1628; border-bottom:1px solid #1e3a5f;">
-                    <div style="color:#3b82f6; font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; margin-bottom:4px;">Plancha agrupada (precio único)</div>
-                    <div style="color:#fff; font-size:15px; font-weight:700;">
-                      ${order.items.length} diseño${order.items.length > 1 ? "s" : ""} en una sola plancha
-                      <span style="color:#aaa; font-weight:400; font-size:13px;">— $${order.total.toLocaleString("es-AR")} ARS</span>
-                    </div>
-                    <div style="color:#888; font-size:12px; margin-top:6px;">Descargá cada PNG individual desde los enlaces de abajo.</div>
-                  </td>
-                </tr>`
-                    : ""
-                }
-                ${buildDownloadLinks(order.items)}
-                ${
-                  order.isPlanchaGrouped && !isLegacyPlanchaOrder(order)
-                    ? buildPlanchaServiceRow(order.items, order.total)
-                    : ""
-                }
+                ${itemsTableBody}
               </tbody>
             </table>
 
-            <!-- Mis Compras callout -->
-            <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a1628; border:1px solid #1e3a5f; border-radius:8px; margin-bottom:32px;">
-              <tr>
-                <td style="padding:16px 20px;">
-                  <p style="color:#aaa; font-size:13px; margin:0 0 10px 0; line-height:1.5;">
-                    Podés volver a descargar tus diseños en cualquier momento desde nuestra página <strong style="color:#fff;">Mis Compras</strong>.
-                  </p>
-                  <a href="https://${DOMAIN}/mis-compras"
-                     style="display:inline-block; background:transparent; color:#3b82f6; font-weight:700; padding:6px 0; text-decoration:none; font-size:13px; border-bottom:1px solid #3b82f6;">
-                    Ir a Mis Compras →
-                  </a>
-                </td>
-              </tr>
-            </table>
+            ${misComprasCalloutHtml}
 
             <!-- Summary -->
             <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:32px;">
@@ -543,7 +588,9 @@ export async function sendOrderConfirmationEmail(order: Order): Promise<void> {
       // order (with the same PDF attached). Hidden so the buyer doesn't see
       // the internal address in their email headers.
       bcc: GMAIL_USER,
-      subject: `✅ GraffInk Diseños — Factura N° ${invoiceStr} confirmada`,
+      subject: isPlancha
+        ? `🎨 GraffInk Diseños — Tu plancha N° ${invoiceStr} se está armando (24hs)`
+        : `✅ GraffInk Diseños — Factura N° ${invoiceStr} confirmada`,
       html,
       attachments: attachments.length > 0 ? attachments : undefined,
     });
@@ -558,5 +605,136 @@ export async function sendOrderConfirmationEmail(order: Order): Promise<void> {
     );
   } catch (err) {
     logger.error({ err, orderId: order.id }, "Failed to send order confirmation email");
+  }
+}
+
+/**
+ * Admin-only alert sent when a buyer pays for an "Armar plancha" order.
+ * The buyer was promised delivery within 24hs in their confirmation email
+ * (see `sendOrderConfirmationEmail`). This email gives the admin everything
+ * needed to manually compose the assembled plancha PNG and email it back to
+ * the buyer: customer contact info, the list of selected designs with direct
+ * download links to the high-res source files, the paid total, and the
+ * payment method so the admin can cross-reference the gateway receipt.
+ *
+ * Fire-and-forget: errors are logged but never thrown, so a failed alert
+ * cannot block the buyer-facing confirmation flow.
+ */
+export async function sendPlanchaAssemblyAlertEmail(order: Order): Promise<void> {
+  // Defense in depth: if the order falls back to the legacy plancha pricing
+  // model (total replaced rather than added) the buyer email still ships
+  // download links, so promising the admin a manual assembly job would
+  // contradict what the buyer was just told. No-op in that case.
+  if (!order.isPlanchaGrouped || isLegacyPlanchaOrder(order)) return;
+
+  const transporter = createTransporter();
+  if (!transporter) return;
+  if (!GMAIL_USER) return;
+
+  const invoiceStr = String(order.invoiceNumber).padStart(6, "0");
+  const totalFormatted = `$${order.total.toLocaleString("es-AR")} ARS`;
+  const itemsSubtotal = order.items.reduce(
+    (s, it) => s + it.price * it.quantity,
+    0,
+  );
+  const planchaFee = Math.max(0, order.total - itemsSubtotal);
+  const customerDniLine = order.customerDni
+    ? `<tr><td style="color:#666; font-size:13px; padding:4px 0;">DNI/CUIT</td><td style="color:#fff; font-size:13px; text-align:right;">${order.customerDni}</td></tr>`
+    : "";
+
+  const sourceFilesRows = order.items
+    .map((item) => {
+      const downloadPath = item.filePath ?? item.imagePath;
+      const downloadUrl = `https://${DOMAIN}/api/storage${downloadPath}`;
+      return `
+      <tr>
+        <td style="padding:10px 14px; border-bottom:1px solid #222; color:#fff; font-size:14px;">${item.name}</td>
+        <td style="padding:10px 14px; border-bottom:1px solid #222; color:#aaa; font-size:13px; text-align:center;">x${item.quantity}</td>
+        <td style="padding:10px 14px; border-bottom:1px solid #222; text-align:right;">
+          <a href="${downloadUrl}" style="display:inline-block; background:#3b82f6; color:#fff; font-weight:700; padding:6px 12px; border-radius:4px; text-decoration:none; font-size:12px;">
+            Descargar fuente
+          </a>
+        </td>
+      </tr>`;
+    })
+    .join("");
+
+  const html = `
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"/></head>
+<body style="margin:0; padding:0; background:#0f0f0f; font-family: Inter, Arial, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f0f; padding:32px 16px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px; width:100%;">
+        <tr>
+          <td style="background:#0a1628; border:1px solid #1e3a5f; border-radius:12px 12px 0 0; padding:24px 32px;">
+            <div style="color:#3b82f6; font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase;">Acción requerida</div>
+            <div style="color:#fff; font-size:22px; font-weight:900; margin-top:4px;">Nueva plancha para armar</div>
+            <div style="color:#aaa; font-size:13px; margin-top:6px;">Factura N° <span style="color:#fff; font-family:monospace;">${invoiceStr}</span> · El comprador espera la plancha dentro de 24hs hábiles.</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#111; padding:24px 32px;">
+            <div style="color:#666; font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; margin-bottom:10px;">Comprador</div>
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+              <tr><td style="color:#666; font-size:13px; padding:4px 0;">Nombre</td><td style="color:#fff; font-size:13px; text-align:right;">${order.customerName}</td></tr>
+              <tr><td style="color:#666; font-size:13px; padding:4px 0;">Email</td><td style="color:#fff; font-size:13px; text-align:right;"><a href="mailto:${order.customerEmail}" style="color:#3b82f6; text-decoration:none;">${order.customerEmail}</a></td></tr>
+              ${customerDniLine}
+              <tr><td style="color:#666; font-size:13px; padding:4px 0;">Método de pago</td><td style="color:#fff; font-size:13px; text-align:right;">${formatMethod(order.paymentMethod)}</td></tr>
+              <tr><td style="color:#666; font-size:13px; padding:4px 0;">Total cobrado</td><td style="color:#3b82f6; font-size:15px; text-align:right; font-weight:900;">${totalFormatted}</td></tr>
+              <tr><td style="color:#666; font-size:13px; padding:4px 0;">Cargo de armado</td><td style="color:#aaa; font-size:13px; text-align:right;">$${planchaFee.toLocaleString("es-AR")} ARS</td></tr>
+            </table>
+
+            <div style="color:#666; font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; margin-bottom:10px;">Diseños a incluir en la plancha (${order.items.length})</div>
+            <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #222; border-radius:8px; overflow:hidden; margin-bottom:24px;">
+              <thead>
+                <tr style="background:#1a1a1a;">
+                  <th style="padding:10px 14px; text-align:left; color:#666; font-size:11px; letter-spacing:2px; text-transform:uppercase; font-weight:700;">Diseño</th>
+                  <th style="padding:10px 14px; text-align:center; color:#666; font-size:11px; letter-spacing:2px; text-transform:uppercase; font-weight:700;">Cant.</th>
+                  <th style="padding:10px 14px; text-align:right; color:#666; font-size:11px; letter-spacing:2px; text-transform:uppercase; font-weight:700;">Fuente</th>
+                </tr>
+              </thead>
+              <tbody>${sourceFilesRows}</tbody>
+            </table>
+
+            <p style="color:#888; font-size:13px; line-height:1.5; margin:0;">
+              Próximo paso: descargá los PNG fuente de arriba, armá la plancha agrupada y enviásela por email a
+              <a href="mailto:${order.customerEmail}" style="color:#3b82f6; text-decoration:none;">${order.customerEmail}</a>.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#0a0a0a; border-radius:0 0 12px 12px; padding:14px 32px; text-align:center; color:#444; font-size:11px;">
+            Aviso interno automático — GraffInk Diseños
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  try {
+    await transporter.sendMail({
+      from: `"GraffInk Diseños" <${GMAIL_USER}>`,
+      to: GMAIL_USER,
+      subject: `🎨 NUEVA plancha para armar — Factura N° ${invoiceStr} (${order.customerName})`,
+      html,
+    });
+    logger.info(
+      {
+        orderId: order.id,
+        invoiceNumber: order.invoiceNumber,
+        customerEmail: order.customerEmail,
+        itemCount: order.items.length,
+      },
+      "Plancha assembly alert sent to admin",
+    );
+  } catch (err) {
+    logger.error(
+      { err, orderId: order.id },
+      "Failed to send plancha assembly alert email",
+    );
   }
 }

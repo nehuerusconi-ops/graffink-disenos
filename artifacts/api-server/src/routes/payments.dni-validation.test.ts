@@ -118,6 +118,7 @@ vi.mock("../lib/email", () => ({
   sendOrderConfirmationEmail: vi.fn().mockResolvedValue(undefined),
   sendWebhookSignatureAlertEmail: vi.fn().mockResolvedValue(undefined),
   sendPaypalSecurityAlertEmail: vi.fn().mockResolvedValue(undefined),
+  sendPlanchaAssemblyAlertEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
 // ─── PayPal HTTP mock — records the call to /v2/checkout/orders ───────────

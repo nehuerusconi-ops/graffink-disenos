@@ -134,3 +134,134 @@ describe("sendOrderConfirmationEmail — PayPal exchange rate line", () => {
     expect(call.html).not.toContain("Tipo de cambio aplicado");
   });
 });
+
+/**
+ * Plancha-grouped orders are NOT auto-deliverable — the admin assembles the
+ * combined PNG by hand and emails it back to the buyer within 24hs. The buyer
+ * confirmation email must reflect that promise instead of pretending the
+ * download is ready, otherwise customers chase a broken link.
+ */
+describe("sendOrderConfirmationEmail — plancha-grouped behavior", () => {
+  it("replaces the download buttons with an 'in preparation' badge and a 24hs delivery promise", async () => {
+    const { sendOrderConfirmationEmail } = await loadEmailModule();
+
+    await sendOrderConfirmationEmail(
+      baseOrder({
+        isPlanchaGrouped: true,
+        // Plancha fee included so the persisted total is above the per-item
+        // subtotal (i.e. NOT a legacy replacement-model order).
+        total: 2496 + 1500,
+      }),
+    );
+
+    expect(sendMailMock).toHaveBeenCalledTimes(1);
+    const call = sendMailMock.mock.calls[0]![0] as {
+      html: string;
+      subject: string;
+    };
+
+    expect(call.html).toContain("24 horas hábiles");
+    expect(call.html).toContain("siendo armada manualmente");
+    expect(call.html).toContain("En preparación");
+    // No download buttons must leak through for plancha orders.
+    expect(call.html).not.toContain("Descargar PNG");
+    expect(call.html).not.toContain("/mis-compras");
+    // Subject must signal the delayed-delivery flow so the buyer doesn't
+    // expect an instant download attachment.
+    expect(call.subject).toContain("se está armando");
+  });
+
+  it("keeps the download buttons for non-plancha orders (regression guard)", async () => {
+    const { sendOrderConfirmationEmail } = await loadEmailModule();
+
+    await sendOrderConfirmationEmail(baseOrder());
+
+    expect(sendMailMock).toHaveBeenCalledTimes(1);
+    const call = sendMailMock.mock.calls[0]![0] as {
+      html: string;
+      subject: string;
+    };
+    expect(call.html).toContain("Descargar PNG");
+    expect(call.html).toContain("/mis-compras");
+    expect(call.html).not.toContain("siendo armada manualmente");
+    expect(call.subject).toContain("confirmada");
+  });
+});
+
+/**
+ * The admin alert is what makes the manual fulfillment flow safe: without it
+ * the buyer would be promised a 24hs delivery that nobody knows to start. The
+ * test pins the contract so a refactor cannot silently drop the alert or its
+ * source-file links.
+ */
+describe("sendPlanchaAssemblyAlertEmail", () => {
+  it("emails the admin with customer info and source-file download links", async () => {
+    const { sendPlanchaAssemblyAlertEmail } = await loadEmailModule();
+
+    await sendPlanchaAssemblyAlertEmail(
+      baseOrder({
+        isPlanchaGrouped: true,
+        total: 2496 + 1500,
+      }),
+    );
+
+    expect(sendMailMock).toHaveBeenCalledTimes(1);
+    const call = sendMailMock.mock.calls[0]![0] as {
+      to: string;
+      subject: string;
+      html: string;
+    };
+
+    expect(call.to).toBe("store@example.com");
+    expect(call.subject).toContain("NUEVA plancha para armar");
+    expect(call.subject).toContain("Test Buyer");
+    // Customer details the admin needs to send the assembled plancha back.
+    expect(call.html).toContain("buyer@example.com");
+    expect(call.html).toContain("Test Buyer");
+    expect(call.html).toContain("12345678");
+    // Direct link to the per-design source file the admin will compose with.
+    expect(call.html).toContain("/api/storage");
+    expect(call.html).toContain("Diseño DTF de prueba");
+  });
+
+  it("is a no-op for legacy plancha orders (total below per-item subtotal)", async () => {
+    // Legacy pricing model: total was REPLACED with a flat plancha price
+    // instead of being added on top. The buyer email still sends download
+    // links in this case, so the admin must NOT receive an "assemble this
+    // manually" alert that would contradict the buyer's expectation.
+    const { sendPlanchaAssemblyAlertEmail } = await loadEmailModule();
+
+    await sendPlanchaAssemblyAlertEmail(
+      baseOrder({
+        isPlanchaGrouped: true,
+        // items subtotal = 2 * 1248 = 2496; total below it triggers legacy.
+        total: 1500,
+      }),
+    );
+
+    expect(sendMailMock).not.toHaveBeenCalled();
+  });
+
+  it("is a no-op for non-plancha orders (defense-in-depth guard)", async () => {
+    const { sendPlanchaAssemblyAlertEmail } = await loadEmailModule();
+
+    await sendPlanchaAssemblyAlertEmail(
+      baseOrder({ isPlanchaGrouped: false }),
+    );
+
+    expect(sendMailMock).not.toHaveBeenCalled();
+  });
+
+  it("is a no-op when Gmail credentials are not configured", async () => {
+    delete process.env["GMAIL_USER"];
+    delete process.env["GMAIL_APP_PASSWORD"];
+
+    const { sendPlanchaAssemblyAlertEmail } = await loadEmailModule();
+
+    await sendPlanchaAssemblyAlertEmail(
+      baseOrder({ isPlanchaGrouped: true, total: 4000 }),
+    );
+
+    expect(sendMailMock).not.toHaveBeenCalled();
+  });
+});

@@ -55,6 +55,7 @@ vi.mock("../lib/email", () => ({
   sendOrderConfirmationEmail: vi.fn().mockResolvedValue(undefined),
   sendWebhookSignatureAlertEmail: vi.fn().mockResolvedValue(undefined),
   sendPaypalSecurityAlertEmail: vi.fn().mockResolvedValue(undefined),
+  sendPlanchaAssemblyAlertEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
 // ─── In-memory DB mock ─────────────────────────────────────────────────────

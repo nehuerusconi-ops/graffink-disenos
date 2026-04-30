@@ -7,6 +7,7 @@ import { eq, inArray } from "drizzle-orm";
 import {
   sendOrderConfirmationEmail,
   sendPaypalSecurityAlertEmail,
+  sendPlanchaAssemblyAlertEmail,
   sendWebhookSignatureAlertEmail,
 } from "../lib/email";
 import { logger } from "../lib/logger";
@@ -565,6 +566,14 @@ router.post("/webhooks/mercadopago", async (req, res): Promise<void> => {
 
     if (updated) {
       await sendOrderConfirmationEmail(updated);
+      // Plancha-grouped orders are NOT auto-delivered: the buyer was just
+      // told their plancha will arrive within 24hs, so the admin needs an
+      // alert with the source files to assemble it manually. Fire-and-forget
+      // (void) to keep the webhook response quick — MP retries slow webhooks
+      // and the alert function already swallows + logs its own errors.
+      if (updated.isPlanchaGrouped) {
+        void sendPlanchaAssemblyAlertEmail(updated);
+      }
     }
   } catch (err) {
     logger.error({ err }, "MP webhook processing error");
@@ -866,6 +875,12 @@ router.post("/payments/paypal/capture-order", async (req, res): Promise<void> =>
 
     if (updated) {
       await sendOrderConfirmationEmail(updated);
+      // See MP webhook above for why plancha-grouped orders trigger a
+      // separate admin alert. Fire-and-forget so the buyer's PayPal capture
+      // response isn't held up by SMTP.
+      if (updated.isPlanchaGrouped) {
+        void sendPlanchaAssemblyAlertEmail(updated);
+      }
     }
 
     res.json(updated);
