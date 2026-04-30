@@ -61,6 +61,112 @@ router.get("/orders", requireAuth, async (_req, res): Promise<void> => {
   res.json(rows);
 });
 
+// Admin-only: export orders as CSV for end-of-month auditing.
+// Optional ?paymentMethod=paypal|mercadopago|uala filters server-side so the
+// download matches what the admin sees in the panel after using the same
+// quick-filter. Columns include the persisted ARS→USD rate and the USD
+// equivalent for PayPal orders so admins can reconcile gateway statements
+// without opening each order one by one.
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  mercadopago: "Mercado Pago",
+  uala: "Ualá Bis",
+  paypal: "PayPal",
+};
+
+function csvEscape(value: string): string {
+  // Spreadsheet formula injection guard: cells starting with =, +, -, @
+  // are interpreted as formulas by Excel/Sheets/LibreOffice. Prefix with a
+  // single apostrophe so the cell renders as plain text. This must run
+  // BEFORE the RFC-4180 quote logic so the apostrophe ends up inside the
+  // quoted value rather than outside it.
+  // Reference: OWASP — CSV Injection.
+  let v = value;
+  if (/^[=+\-@\t\r]/.test(v)) {
+    v = `'${v}`;
+  }
+  // RFC 4180: wrap in quotes if contains comma, quote, newline; double inner quotes.
+  if (/[",\n\r]/.test(v)) {
+    return `"${v.replace(/"/g, '""')}"`;
+  }
+  return v;
+}
+
+const ExportOrdersQuery = z.object({
+  paymentMethod: z.enum(["mercadopago", "uala", "paypal"]).optional(),
+});
+
+router.get("/orders/export", requireAdmin, async (req, res): Promise<void> => {
+  const parsed = ExportOrdersQuery.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: "paymentMethod inválido" });
+    return;
+  }
+  const { paymentMethod } = parsed.data;
+
+  const rows = paymentMethod
+    ? await db
+        .select()
+        .from(ordersTable)
+        .where(eq(ordersTable.paymentMethod, paymentMethod))
+        .orderBy(desc(ordersTable.createdAt))
+    : await db.select().from(ordersTable).orderBy(desc(ordersTable.createdAt));
+
+  // Columns match the task spec exactly: N° factura, Fecha, Cliente, Total
+  // ARS, Método, Tipo de cambio aplicado, USD equivalente. The customer
+  // email is folded into the "Cliente" cell so admins can still match
+  // gateway statements by email without an extra column.
+  const header = [
+    "N° factura",
+    "Fecha",
+    "Cliente",
+    "Total ARS",
+    "Método",
+    "Tipo de cambio aplicado",
+    "USD equivalente",
+  ];
+
+  const lines: string[] = [header.map(csvEscape).join(",")];
+  for (const o of rows) {
+    const invoiceStr = String(o.invoiceNumber).padStart(6, "0");
+    const fecha = o.createdAt.toISOString();
+    const cliente = `${o.customerName} <${o.customerEmail}>`;
+    const methodLabel = PAYMENT_METHOD_LABELS[o.paymentMethod] ?? o.paymentMethod;
+    let rateStr = "";
+    let usdStr = "";
+    if (o.paymentMethod === "paypal" && o.arsToUsdRate) {
+      const rateNum = parseFloat(o.arsToUsdRate);
+      if (Number.isFinite(rateNum) && rateNum > 0) {
+        rateStr = rateNum.toFixed(4);
+        usdStr = (o.total / rateNum).toFixed(2);
+      }
+    }
+    lines.push(
+      [
+        invoiceStr,
+        fecha,
+        cliente,
+        String(o.total),
+        methodLabel,
+        rateStr,
+        usdStr,
+      ]
+        .map(csvEscape)
+        .join(","),
+    );
+  }
+
+  // BOM so Excel auto-detects UTF-8 (admins open these in Excel for audits).
+  const body = "\uFEFF" + lines.join("\r\n") + "\r\n";
+
+  const today = new Date().toISOString().slice(0, 10);
+  const suffix = paymentMethod ? `-${paymentMethod}` : "";
+  const filename = `ordenes${suffix}-${today}.csv`;
+
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.send(body);
+});
+
 router.get("/orders/stats", requireAuth, async (_req, res): Promise<void> => {
   const now = new Date();
   const startOfDay = new Date(now);

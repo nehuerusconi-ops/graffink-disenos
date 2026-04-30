@@ -3,13 +3,28 @@ import { useListOrders } from "@workspace/api-client-react";
 import type { Order } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, FileText, Printer, Search, Eye, Download } from "lucide-react";
+import {
+  Loader2,
+  FileText,
+  Printer,
+  Search,
+  Eye,
+  Download,
+  FileSpreadsheet,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
@@ -17,6 +32,16 @@ function downloadInvoicePdf(orderId: string): void {
   // Clerk session cookie is sent automatically (same origin); the server's
   // requireAdmin middleware will validate it. Browser will start the download.
   window.open(`${BASE}/api/orders/${orderId}/invoice-pdf`, "_blank");
+}
+
+type PaymentMethodFilter = "all" | "paypal" | "mercadopago" | "uala";
+
+function downloadOrdersCsv(method: PaymentMethodFilter): void {
+  // Clerk session cookie is sent automatically (same origin); the server's
+  // requireAdmin middleware validates the user. The query string keeps the
+  // server-side filter in sync with what the admin sees in the table.
+  const qs = method === "all" ? "" : `?paymentMethod=${method}`;
+  window.open(`${BASE}/api/orders/export${qs}`, "_blank");
 }
 
 const PAYMENT_LABELS: Record<string, string> = {
@@ -203,13 +228,17 @@ function escapeHtml(s: string): string {
 export function InvoicesTab() {
   const { data: orders, isLoading } = useListOrders<Order[]>();
   const [search, setSearch] = useState("");
+  const [methodFilter, setMethodFilter] = useState<PaymentMethodFilter>("all");
   const [selected, setSelected] = useState<Order | null>(null);
 
   const filtered = useMemo(() => {
     if (!orders) return [];
     const q = search.trim().toLowerCase();
-    if (!q) return orders;
     return orders.filter((o) => {
+      if (methodFilter !== "all" && o.paymentMethod !== methodFilter) {
+        return false;
+      }
+      if (!q) return true;
       return (
         o.customerName.toLowerCase().includes(q) ||
         o.customerEmail.toLowerCase().includes(q) ||
@@ -217,7 +246,7 @@ export function InvoicesTab() {
         o.id.includes(q)
       );
     });
-  }, [orders, search]);
+  }, [orders, search, methodFilter]);
 
   if (isLoading) {
     return (
@@ -229,23 +258,57 @@ export function InvoicesTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 className="text-lg font-bold uppercase tracking-wider">
-            Facturas <span className="text-white/40">({orders?.length ?? 0})</span>
+            Facturas{" "}
+            <span className="text-white/40">
+              ({filtered.length}
+              {orders && filtered.length !== orders.length
+                ? ` de ${orders.length}`
+                : ""}
+              )
+            </span>
           </h2>
           <p className="text-sm text-white/50">
             Listado completo de ventas con factura imprimible.
           </p>
         </div>
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por cliente, email o N°"
-            className="pl-9"
-          />
+        <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+          <Select
+            value={methodFilter}
+            onValueChange={(v) => setMethodFilter(v as PaymentMethodFilter)}
+          >
+            <SelectTrigger
+              className="w-full sm:w-44"
+              aria-label="Filtrar por método de pago"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los métodos</SelectItem>
+              <SelectItem value="paypal">PayPal</SelectItem>
+              <SelectItem value="mercadopago">Mercado Pago</SelectItem>
+              <SelectItem value="uala">Ualá Bis</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por cliente, email o N°"
+              className="pl-9"
+            />
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => downloadOrdersCsv(methodFilter)}
+            className="border-white/10 hover:bg-white/5 whitespace-nowrap"
+            title="Descargar CSV con las órdenes filtradas"
+          >
+            <FileSpreadsheet className="h-4 w-4 mr-2" /> Exportar CSV
+          </Button>
         </div>
       </div>
 
