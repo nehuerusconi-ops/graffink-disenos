@@ -78,4 +78,19 @@ https://{REPLIT_DOMAIN}/api/webhooks/mercadopago
 
 **Admin alert rate limit:** when an invalid signature is detected the server emails the admin, capped to a maximum number of alerts per hour to avoid spam during attacks. The cap defaults to **5** and can be overridden at runtime (no redeploy needed) via the `WEBHOOK_ALERT_MAX_PER_HOUR` Replit secret. Must be a positive integer; the API server throws at startup if the value is set but invalid.
 
+## Webhook Security Events Cleanup
+
+The `webhook_security_events` table only ever serves the latest 500 rows to the admin panel but grows on every rejected webhook, so it is trimmed on a schedule.
+
+**Script:** `scripts/src/cleanupWebhookSecurityEvents.ts` — deletes every row whose `created_at` is older than the configured retention window and exits. Uses the same `DATABASE_URL` / `@workspace/db` pool as the rest of the workspace, and emits one JSON log line on start and one on done (with `deletedCount`).
+
+**Run manually:**
+```
+pnpm --filter @workspace/scripts run cleanup-webhook-security-events
+```
+
+**Run on a schedule (production):** publish a Replit **Scheduled Deployment** with the command above, set to run **daily** (e.g. `0 4 * * *`). The deployment inherits `DATABASE_URL` and the optional retention secret automatically.
+
+**Retention threshold:** defaults to **90 days**. Override at runtime — no redeploy needed — via the `WEBHOOK_SECURITY_EVENT_RETENTION_DAYS` Replit secret. Must be a positive integer (days); the script exits non-zero if the value is set but invalid.
+
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
