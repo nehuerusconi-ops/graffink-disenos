@@ -4,7 +4,7 @@ import { FaInstagram, FaTiktok } from "react-icons/fa6";
 import { Mail } from "lucide-react";
 import { toast } from "sonner";
 
-const CONTACT_EMAIL = "graffink.desing@gmail.com";
+const CONTACT_EMAIL = "graffink.design@gmail.com";
 
 export function Footer() {
   const handleSubscribe = (e: React.FormEvent) => {

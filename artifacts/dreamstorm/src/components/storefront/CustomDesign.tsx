@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Palette, Send, CheckCircle2 } from "lucide-react";
 
-const CONTACT_EMAIL = "graffink.desing@gmail.com";
+const CONTACT_EMAIL = "graffink.design@gmail.com";
 
 export function CustomDesign() {
   const [form, setForm] = useState({ name: "", email: "", description: "" });
