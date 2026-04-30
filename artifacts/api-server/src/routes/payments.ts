@@ -4,7 +4,7 @@ import { MercadoPagoConfig, Preference, Payment } from "mercadopago";
 import { db, ordersTable, productsTable } from "@workspace/db";
 import type { OrderItem } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
-import { sendOrderConfirmationEmail } from "../lib/email";
+import { sendOrderConfirmationEmail, sendWebhookSignatureAlertEmail } from "../lib/email";
 import { logger } from "../lib/logger";
 import { requireAdmin } from "../middlewares/requireAdmin";
 import { z } from "zod";
@@ -341,6 +341,20 @@ router.post("/webhooks/mercadopago", async (req, res): Promise<void> => {
 
   if (!validateMPSignature(xSignature, xRequestId, dataId, MP_WEBHOOK_SECRET)) {
     logger.warn({ xSignature, xRequestId, dataId }, "MP webhook: invalid signature — rejected");
+
+    // Extract the timestamp from x-signature (ts=<value>,v1=<hash>) for the alert email
+    const tsMatch = xSignature ? /ts=([^,]+)/.exec(xSignature) : null;
+    const sigTimestamp = tsMatch ? tsMatch[1] : new Date().toISOString();
+
+    // Fire-and-forget alert to the admin (rate-limited internally)
+    void sendWebhookSignatureAlertEmail({
+      ip: (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
+        ?? req.socket.remoteAddress
+        ?? "unknown",
+      xRequestId,
+      timestamp: sigTimestamp ?? new Date().toISOString(),
+    });
+
     res.sendStatus(401);
     return;
   }

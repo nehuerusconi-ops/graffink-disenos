@@ -50,6 +50,115 @@ function formatMethod(method: string): string {
   return map[method] ?? method;
 }
 
+// ---------------------------------------------------------------------------
+// Webhook signature alert — rate-limited to MAX_ALERTS_PER_HOUR per hour
+// ---------------------------------------------------------------------------
+
+const MAX_ALERTS_PER_HOUR = 5;
+const alertTimestamps: number[] = [];
+
+export async function sendWebhookSignatureAlertEmail(opts: {
+  ip: string;
+  xRequestId: string | undefined;
+  timestamp: string;
+}): Promise<void> {
+  const transporter = createTransporter();
+  if (!transporter || !GMAIL_USER) return;
+
+  const now = Date.now();
+  const oneHourAgo = now - 60 * 60 * 1000;
+
+  // Prune timestamps older than 1 hour
+  while (alertTimestamps.length > 0 && alertTimestamps[0]! < oneHourAgo) {
+    alertTimestamps.shift();
+  }
+
+  if (alertTimestamps.length >= MAX_ALERTS_PER_HOUR) {
+    logger.warn(
+      { ip: opts.ip, xRequestId: opts.xRequestId },
+      "MP webhook alert rate limit reached — skipping admin email",
+    );
+    return;
+  }
+
+  alertTimestamps.push(now);
+
+  const html = `
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:0;background:#0f0f0f;font-family:Inter,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f0f;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+
+        <tr>
+          <td style="background:#1a0000;border-radius:12px 12px 0 0;padding:32px 40px;border-bottom:2px solid #ef4444;">
+            <p style="color:#ef4444;font-size:13px;font-weight:700;letter-spacing:1px;margin:0 0 8px 0;">⚠ ALERTA DE SEGURIDAD</p>
+            <h1 style="color:#fff;font-size:20px;font-weight:900;margin:0;">Firma inválida en webhook de Mercado Pago</h1>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="background:#111;padding:32px 40px;">
+            <p style="color:#aaa;font-size:15px;margin:0 0 24px 0;">
+              Se recibió una solicitud al endpoint de webhook de Mercado Pago con una firma HMAC inválida.
+              Esto puede indicar un intento de replay attack o un fraude. Revisá los logs del servidor para más contexto.
+            </p>
+
+            <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #2a0000;border-radius:8px;overflow:hidden;margin-bottom:24px;">
+              <tr style="background:#1a0000;">
+                <th colspan="2" style="padding:10px 16px;text-align:left;color:#ef4444;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;">Detalles del intento</th>
+              </tr>
+              <tr>
+                <td style="padding:10px 16px;border-bottom:1px solid #1a1a1a;color:#666;font-size:13px;width:40%;">IP de origen</td>
+                <td style="padding:10px 16px;border-bottom:1px solid #1a1a1a;color:#fff;font-size:13px;font-family:monospace;">${opts.ip}</td>
+              </tr>
+              <tr>
+                <td style="padding:10px 16px;border-bottom:1px solid #1a1a1a;color:#666;font-size:13px;">x-request-id</td>
+                <td style="padding:10px 16px;border-bottom:1px solid #1a1a1a;color:#fff;font-size:13px;font-family:monospace;">${opts.xRequestId ?? "(no enviado)"}</td>
+              </tr>
+              <tr>
+                <td style="padding:10px 16px;color:#666;font-size:13px;">Timestamp (ts)</td>
+                <td style="padding:10px 16px;color:#fff;font-size:13px;font-family:monospace;">${opts.timestamp}</td>
+              </tr>
+            </table>
+
+            <p style="color:#555;font-size:12px;margin:0;">
+              Este aviso está limitado a ${MAX_ALERTS_PER_HOUR} alertas por hora para evitar spam durante ataques masivos.
+            </p>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="background:#0a0a0a;border-radius:0 0 12px 12px;padding:20px 40px;border-top:1px solid #1a1a1a;text-align:center;">
+            <p style="color:#444;font-size:12px;margin:0;">DTF LAB — Alerta automática del sistema</p>
+            <p style="color:#333;font-size:11px;margin:6px 0 0 0;">https://${DOMAIN}</p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  try {
+    await transporter.sendMail({
+      from: `"DTF LAB Sistema" <${GMAIL_USER}>`,
+      to: GMAIL_USER,
+      subject: `🚨 DTF LAB — Firma inválida en webhook de Mercado Pago (IP: ${opts.ip})`,
+      html,
+    });
+    logger.info(
+      { ip: opts.ip, xRequestId: opts.xRequestId },
+      "Webhook signature alert email sent to admin",
+    );
+  } catch (err) {
+    logger.error({ err }, "Failed to send webhook signature alert email");
+  }
+}
+
 export async function sendOrderConfirmationEmail(order: Order): Promise<void> {
   const transporter = createTransporter();
   if (!transporter) return;
