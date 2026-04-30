@@ -21,3 +21,4 @@ export * from "./products";
 export * from "./orders";
 export * from "./appSettings";
 export * from "./webhookSecurityEvents";
+export * from "./webhookAlertLog";

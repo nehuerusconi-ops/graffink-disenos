@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
-import type { Order } from "@workspace/db";
+import { count, lt, sql } from "drizzle-orm";
+import { db, webhookAlertLogTable, type Order } from "@workspace/db";
 import { logger } from "./logger";
 import { buildInvoicePdf, formatPaypalRateLine } from "./pdfInvoice";
 
@@ -141,32 +142,90 @@ const MAX_ALERTS_PER_HOUR = resolveMaxAlertsPerHour();
 // security alert consume from the same per-hour quota. Sharing it caps the
 // total volume of "security" emails the admin can receive in any given hour
 // regardless of how many channels an attacker probes.
-const alertTimestamps: number[] = [];
+//
+// State is kept in the `webhook_alert_log` table (NOT a process-local array)
+// so the cap survives server restarts (deploy/crash/scaling) and is shared
+// across multiple instances. With an in-memory counter an attacker triggering
+// a restart loop, or simply hitting two instances in parallel, could exceed
+// the configured quota by an arbitrary multiple.
 
 /**
- * Shared rate-limit gate for admin security alerts. Prunes timestamps older
- * than 1h and either records "now" and returns true (caller should send) or
- * returns false (caller should skip). Extracted so MP and PayPal alerts share
- * the same bucket without duplicating the prune/skip logic.
+ * Stable advisory-lock key used by `tryConsumeAlertSlot` to serialise the
+ * prune/count/insert sequence across ALL instances of the server. Picked
+ * arbitrarily; the only requirement is that it stays the same across deploys
+ * so concurrent processes contend on the same key. `pg_advisory_xact_lock`
+ * auto-releases when the transaction commits or rolls back, so we never need
+ * a manual unlock and a crashed worker won't strand the lock.
  */
-function tryConsumeAlertSlot(logCtx: Record<string, unknown>, source: string): boolean {
-  const now = Date.now();
-  const oneHourAgo = now - 60 * 60 * 1000;
+const ALERT_LEDGER_ADVISORY_LOCK_KEY = 0x57414c52n; // "WALR" in ascii
 
-  while (alertTimestamps.length > 0 && alertTimestamps[0]! < oneHourAgo) {
-    alertTimestamps.shift();
-  }
+/**
+ * Shared rate-limit gate for admin security alerts. Inside a single
+ * transaction, takes a Postgres advisory lock, prunes rows older than 1h,
+ * counts what's left, and either inserts a fresh row + returns true (caller
+ * should send) or returns false (caller should skip).
+ *
+ * The advisory lock is what makes this safe under concurrency. Postgres
+ * defaults to `READ COMMITTED`, so without serialisation two transactions
+ * (on the same instance OR on different instances pointed at the same DB)
+ * could both see `sent < cap` at the same time and both insert — letting an
+ * attacker exceed the configured per-hour quota by an arbitrary multiple.
+ * `pg_advisory_xact_lock` makes every slot decision strictly serial across
+ * the whole cluster: any second caller waits until the first transaction
+ * commits before it can read the count.
+ *
+ * Persistence + serialisation together give us the guarantees required by
+ * the task: the cap survives server restarts AND scales correctly across
+ * multiple instances.
+ */
+async function tryConsumeAlertSlot(
+  logCtx: Record<string, unknown>,
+  source: string,
+): Promise<boolean> {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
 
-  if (alertTimestamps.length >= MAX_ALERTS_PER_HOUR) {
-    logger.warn(
-      logCtx,
-      `${source} alert rate limit reached — skipping admin email`,
+  try {
+    return await db.transaction(async (tx) => {
+      // Serialise across processes/instances. Released automatically when the
+      // surrounding transaction commits or aborts.
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(${ALERT_LEDGER_ADVISORY_LOCK_KEY})`,
+      );
+
+      // Prune so the count below reflects only "alerts in the last hour".
+      // Keeps the table bounded by MAX_ALERTS_PER_HOUR in steady state.
+      await tx
+        .delete(webhookAlertLogTable)
+        .where(lt(webhookAlertLogTable.sentAt, oneHourAgo));
+
+      const [row] = await tx
+        .select({ value: count() })
+        .from(webhookAlertLogTable);
+      const sent = row?.value ?? 0;
+
+      if (sent >= MAX_ALERTS_PER_HOUR) {
+        logger.warn(
+          logCtx,
+          `${source} alert rate limit reached — skipping admin email`,
+        );
+        return false;
+      }
+
+      await tx
+        .insert(webhookAlertLogTable)
+        .values({ source, sentAt: sql`now()` });
+      return true;
+    });
+  } catch (err) {
+    // If the ledger query/insert itself fails (DB outage, schema drift, etc.)
+    // we deliberately FAIL CLOSED — i.e. drop the email — instead of falling
+    // back to "send anyway" which could uncap the alerts during a real attack.
+    logger.error(
+      { ...logCtx, err },
+      `${source} alert rate limit ledger failed — skipping admin email`,
     );
     return false;
   }
-
-  alertTimestamps.push(now);
-  return true;
 }
 
 export async function sendWebhookSignatureAlertEmail(opts: {
@@ -178,10 +237,10 @@ export async function sendWebhookSignatureAlertEmail(opts: {
   if (!transporter || !GMAIL_USER) return;
 
   if (
-    !tryConsumeAlertSlot(
+    !(await tryConsumeAlertSlot(
       { ip: opts.ip, xRequestId: opts.xRequestId },
       "MP webhook",
-    )
+    ))
   ) {
     return;
   }
@@ -301,7 +360,7 @@ export async function sendPaypalSecurityAlertEmail(opts: {
   if (!transporter || !GMAIL_USER) return;
 
   if (
-    !tryConsumeAlertSlot(
+    !(await tryConsumeAlertSlot(
       {
         reason: opts.reason,
         orderId: opts.orderId,
@@ -309,7 +368,7 @@ export async function sendPaypalSecurityAlertEmail(opts: {
         ip: opts.ip,
       },
       "PayPal capture",
-    )
+    ))
   ) {
     return;
   }
