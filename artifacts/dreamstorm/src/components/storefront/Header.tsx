@@ -59,7 +59,7 @@ export function Header() {
           className="flex items-center"
           aria-label="DTF LAB - Inicio"
         >
-          <img src="/logo.svg" alt="DTF LAB" className="h-9 w-auto" />
+          <img src="/logo.png" alt="DTF LAB" className="h-12 w-auto" />
         </button>
 
         {/* Desktop Nav */}

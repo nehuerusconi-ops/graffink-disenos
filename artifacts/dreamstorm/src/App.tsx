@@ -52,7 +52,7 @@ function App() {
       appearance={{
         baseTheme: dark,
         layout: {
-          logoImageUrl: `${BASE}/logo.svg`,
+          logoImageUrl: `${BASE}/logo.png`,
           logoLinkUrl: "/",
           socialButtonsPlacement: "bottom",
         },
