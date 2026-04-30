@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useSearch, useLocation } from "wouter";
-import { CheckCircle2, Clock, XCircle, Loader2, Mail, ArrowLeft } from "lucide-react";
+import { CheckCircle2, Clock, XCircle, Loader2, Mail, ArrowLeft, PackageOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Header } from "@/components/storefront/Header";
 import { Footer } from "@/components/storefront/Footer";
@@ -156,6 +156,14 @@ export default function CheckoutResult({ type }: { type: ResultType }) {
 
             {!isPolling && (
               <div className="flex flex-col gap-3 mt-6">
+                <Button
+                  size="lg"
+                  className="w-full h-12 bg-primary text-white font-bold hover:bg-primary/90"
+                  onClick={() => navigate("/mis-compras")}
+                >
+                  <PackageOpen className="w-4 h-4 mr-2" />
+                  Ver mis compras
+                </Button>
                 <Button
                   variant="ghost"
                   className="w-full text-white/60 hover:text-white"
