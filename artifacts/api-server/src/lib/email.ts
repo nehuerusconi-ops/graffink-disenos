@@ -43,23 +43,42 @@ function buildDownloadLinks(items: Order["items"]): string {
 }
 
 /**
- * Build a single "Plancha agrupada" header row that announces the bundled
- * purchase, followed by the per-design download rows. Used when an order was
- * checked out with the "Agrupar como plancha" toggle (order.isPlanchaGrouped).
+ * Build a single "Armar plancha" service-fee row appended after the per-design
+ * download rows. Used when an order was checked out with the "Armar plancha"
+ * toggle (order.isPlanchaGrouped). The fee is derived from the persisted
+ * order.total minus the per-item subtotal so the email always shows the exact
+ * amount the customer paid, even if the live setting changed later.
  */
-function buildPlanchaHeaderRow(items: Order["items"], total: number): string {
+function buildPlanchaServiceRow(items: Order["items"], total: number): string {
+  const itemsSubtotal = items.reduce((s, it) => s + it.price * it.quantity, 0);
+  const planchaFee = Math.max(0, total - itemsSubtotal);
   const count = items.length;
   return `
       <tr>
-        <td colspan="3" style="padding:14px 16px; background:#0a1628; border-bottom:1px solid #1e3a5f;">
-          <div style="color:#3b82f6; font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; margin-bottom:4px;">Plancha agrupada</div>
-          <div style="color:#fff; font-size:15px; font-weight:700;">
-            ${count} diseño${count > 1 ? "s" : ""} en una sola plancha
-            <span style="color:#aaa; font-weight:400; font-size:13px;">— $${total.toLocaleString("es-AR")} ARS</span>
-          </div>
-          <div style="color:#888; font-size:12px; margin-top:6px;">Descargá cada PNG individual desde los enlaces de abajo.</div>
+        <td style="padding:14px 16px; background:#0a1628; border-top:1px solid #1e3a5f; color:#fff; font-size:14px;">
+          <div style="font-weight:700;">Armar plancha</div>
+          <div style="color:#aaa; font-size:12px; margin-top:2px;">${count} diseño${count > 1 ? "s" : ""} agrupado${count > 1 ? "s" : ""} en una sola plancha imprimible</div>
+        </td>
+        <td style="padding:14px 16px; background:#0a1628; border-top:1px solid #1e3a5f; color:#aaa; font-size:14px; text-align:center;">—</td>
+        <td style="padding:14px 16px; background:#0a1628; border-top:1px solid #1e3a5f; color:#3b82f6; font-size:14px; text-align:right; font-weight:700;">
+          +$${planchaFee.toLocaleString("es-AR")}
         </td>
       </tr>`;
+}
+
+/**
+ * True for orders persisted under the OLD replacement-model (legacy):
+ * `isPlanchaGrouped` is true and the persisted total is BELOW the sum of
+ * the per-item prices (because the old code REPLACED the total with a flat
+ * plancha price). Avoids contradictions in historical invoices/emails.
+ */
+function isLegacyPlanchaOrder(order: Order): boolean {
+  if (!order.isPlanchaGrouped) return false;
+  const itemsSubtotal = order.items.reduce(
+    (s, it) => s + it.price * it.quantity,
+    0,
+  );
+  return order.total < itemsSubtotal;
 }
 
 function formatMethod(method: string): string {
@@ -229,8 +248,27 @@ export async function sendOrderConfirmationEmail(order: Order): Promise<void> {
                 </tr>
               </thead>
               <tbody>
-                ${order.isPlanchaGrouped ? buildPlanchaHeaderRow(order.items, order.total) : ""}
+                ${
+                  isLegacyPlanchaOrder(order)
+                    ? `
+                <tr>
+                  <td colspan="3" style="padding:14px 16px; background:#0a1628; border-bottom:1px solid #1e3a5f;">
+                    <div style="color:#3b82f6; font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; margin-bottom:4px;">Plancha agrupada (precio único)</div>
+                    <div style="color:#fff; font-size:15px; font-weight:700;">
+                      ${order.items.length} diseño${order.items.length > 1 ? "s" : ""} en una sola plancha
+                      <span style="color:#aaa; font-weight:400; font-size:13px;">— $${order.total.toLocaleString("es-AR")} ARS</span>
+                    </div>
+                    <div style="color:#888; font-size:12px; margin-top:6px;">Descargá cada PNG individual desde los enlaces de abajo.</div>
+                  </td>
+                </tr>`
+                    : ""
+                }
                 ${buildDownloadLinks(order.items)}
+                ${
+                  order.isPlanchaGrouped && !isLegacyPlanchaOrder(order)
+                    ? buildPlanchaServiceRow(order.items, order.total)
+                    : ""
+                }
               </tbody>
             </table>
 

@@ -8,7 +8,7 @@
 
 export interface AppSettings {
   /**
-   * Precio en ARS para "armar una plancha" (cobrar varios diseños como una sola plancha).
+   * Precio en ARS del servicio "Armar plancha". Se SUMA al subtotal de los diseños cuando el cliente activa la opción en el carrito; no reemplaza el total.
    * @minimum 0
    */
   planchaGroupingPrice: number;

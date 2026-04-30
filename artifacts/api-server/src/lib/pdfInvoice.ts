@@ -264,27 +264,33 @@ export function buildInvoicePdf(order: Order): Promise<Buffer> {
       const rowH = 22;
       doc.font("Helvetica").fontSize(9).fillColor("#000");
 
-      if (order.isPlanchaGrouped) {
-        // Plancha agrupada: render a header row "Plancha agrupada (N diseños)"
-        // priced at order.total, then list each included design on its own
-        // sub-row (italic, price column dashed) so long carts paginate cleanly
-        // instead of overflowing into the totals/footer area.
+      // Detect orders persisted under the OLD replacement-model (legacy):
+      // those have `isPlanchaGrouped` true and a `total` lower than the sum
+      // of their item prices (because the old code REPLACED the total with
+      // a flat plancha price). Render those as a single bundle row to keep
+      // the document internally consistent. New orders use the additive
+      // model (per-item rows + a "Armar plancha" service row).
+      const itemsSubtotal = order.items.reduce(
+        (s, it) => s + it.price * it.quantity,
+        0,
+      );
+      const isLegacyPlancha =
+        order.isPlanchaGrouped && order.total < itemsSubtotal;
+
+      if (isLegacyPlancha) {
         const headlineText = `Plancha agrupada (${order.items.length} diseño${order.items.length > 1 ? "s" : ""})`;
         const headlineRowH = 28;
-
         if (rowY + headlineRowH > PAGE_BOTTOM_LIMIT) {
           doc.addPage();
           rowY = drawTableHeader(PAGE_MARGIN);
           doc.font("Helvetica").fontSize(9).fillColor("#000");
         }
-
         doc
           .lineWidth(0.5)
           .strokeColor("#000")
           .rect(PAGE_MARGIN, rowY, CONTENT_W, headlineRowH)
           .fillAndStroke("#fafafa", "#000")
           .fillColor("#000");
-
         const headlineY = rowY + 9;
         doc.font("Helvetica").fontSize(9);
         doc.text("1", cantX, headlineY, { width: colCantW, align: "center" });
@@ -299,26 +305,20 @@ export function buildInvoicePdf(order: Order): Promise<Buffer> {
           align: "right",
         });
         rowY += headlineRowH;
-
-        // Sub-rows: one per included design, paginated independently.
         for (const item of order.items) {
           const subDesc = `   ↳ Incluye: ${item.name}${item.quantity > 1 ? ` × ${item.quantity}` : ""}`;
           doc.font("Helvetica-Oblique").fontSize(8);
           const subDescH = doc.heightOfString(subDesc, { width: colDescW - 12 });
           const subRowH = Math.max(18, subDescH + 8);
-
           if (rowY + subRowH > PAGE_BOTTOM_LIMIT) {
             doc.addPage();
             rowY = drawTableHeader(PAGE_MARGIN);
-            doc.font("Helvetica-Oblique").fontSize(8);
           }
-
           doc
             .lineWidth(0.5)
             .strokeColor("#000")
             .rect(PAGE_MARGIN, rowY, CONTENT_W, subRowH)
             .stroke();
-
           const subY = rowY + 5;
           doc.font("Helvetica").fontSize(8).fillColor("#666");
           doc.text("—", cantX, subY, { width: colCantW, align: "center" });
@@ -328,12 +328,13 @@ export function buildInvoicePdf(order: Order): Promise<Buffer> {
           doc.text("—", unitX, subY, { width: colUnitW - 6, align: "right" });
           doc.text("—", totalX, subY, { width: colTotalW - 6, align: "right" });
           doc.fillColor("#000");
-
           rowY += subRowH;
         }
-        // Restore default font for whatever follows (totals block).
         doc.font("Helvetica").fontSize(9).fillColor("#000");
       } else {
+        // Render each design row at its individual price. The "armar plancha"
+        // mode now ADDS a single service line at the end (instead of replacing
+        // the per-design totals like the previous flat-price model did).
         for (const item of order.items) {
           // dynamic row height for long descriptions
           const descHeight = doc.heightOfString(item.name, {
@@ -372,6 +373,49 @@ export function buildInvoicePdf(order: Order): Promise<Buffer> {
 
           rowY += thisRowH;
         }
+      }
+
+      if (order.isPlanchaGrouped && !isLegacyPlancha) {
+        // The plancha service is a single additive fee. Derive it from the
+        // persisted total minus the sum of items so we never need to refetch
+        // the live setting (which may have changed since the order was paid).
+        const planchaFee = Math.max(0, order.total - itemsSubtotal);
+        const planchaRowH = 22;
+
+        if (rowY + planchaRowH > PAGE_BOTTOM_LIMIT) {
+          doc.addPage();
+          rowY = drawTableHeader(PAGE_MARGIN);
+          doc.font("Helvetica").fontSize(9).fillColor("#000");
+        }
+
+        doc
+          .lineWidth(0.5)
+          .strokeColor("#000")
+          .rect(PAGE_MARGIN, rowY, CONTENT_W, planchaRowH)
+          .fillAndStroke("#fafafa", "#000")
+          .fillColor("#000");
+
+        const py = rowY + 6;
+        doc.font("Helvetica").fontSize(9);
+        doc.text("1", cantX, py, { width: colCantW, align: "center" });
+        doc.font("Helvetica-Bold").fontSize(9);
+        doc.text(
+          `Armar plancha (${order.items.length} diseño${order.items.length > 1 ? "s" : ""})`,
+          descX + 6,
+          py,
+          { width: colDescW - 12 },
+        );
+        doc.font("Helvetica").fontSize(9);
+        doc.text(`$ ${fmtMoney(planchaFee)}`, unitX, py, {
+          width: colUnitW - 6,
+          align: "right",
+        });
+        doc.text(`$ ${fmtMoney(planchaFee)}`, totalX, py, {
+          width: colTotalW - 6,
+          align: "right",
+        });
+
+        rowY += planchaRowH;
       }
 
       // ensure totals + footer fit on the current page; otherwise paginate

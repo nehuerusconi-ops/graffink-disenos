@@ -15,13 +15,18 @@ interface CartContextType {
   totalItems: number;
   /** Suma de items por su precio individual (sin agrupar). */
   itemsTotal: number;
-  /** Total efectivo a cobrar — si groupAsPlancha=true, equivale a planchaPrice. */
+  /**
+   * Total efectivo a cobrar.
+   * Si groupAsPlancha=true, equivale a `itemsTotal + planchaPrice` (la
+   * plancha es un costo adicional de armado, NO reemplaza el precio de los
+   * diseños).
+   */
   totalPrice: number;
   isCartOpen: boolean;
   setIsCartOpen: (isOpen: boolean) => void;
   groupAsPlancha: boolean;
   setGroupAsPlancha: (v: boolean) => void;
-  /** Precio único de la plancha agrupada (ARS), traído del backend. */
+  /** Precio del servicio "armar plancha" (ARS), traído del backend. */
   planchaPrice: number;
 }
 
@@ -94,7 +99,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
   const itemsTotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const totalPrice = groupAsPlancha && items.length > 0 ? planchaPrice : itemsTotal;
+  // Plancha grouping is now an ADDITIVE service fee on top of the item
+  // subtotal — checking the toggle adds `planchaPrice` (default $1000) to
+  // the cart total, instead of replacing it. This matches the user's
+  // pricing model: cobrar los diseños + el costo de armar la plancha.
+  const totalPrice =
+    groupAsPlancha && items.length > 0 ? itemsTotal + planchaPrice : itemsTotal;
 
   return (
     <CartContext.Provider

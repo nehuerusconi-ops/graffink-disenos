@@ -133,23 +133,42 @@ const CustomerInfoSchema = z.object({
 });
 
 /**
- * Apply the "plancha agrupada" mode to a resolved cart, replacing the per-item
- * total with the server-side configured plancha price. The original orderItems
- * are kept (as the snapshot of designs included in the plancha) for the PDF
- * comprobante and email — only the total changes.
+ * Apply the "armar plancha" service-fee to a resolved cart when requested.
+ *
+ * Pricing model: the plancha price is now ADDITIVE — it is added on top of
+ * the per-design subtotal as a single service fee for arming all designs
+ * onto one printable plancha. It does NOT replace the items total.
+ *
+ *   total_final = sum(items.price * items.quantity) + planchaPrice
+ *
+ * The original orderItems are kept untouched (clients still pay each design
+ * at its individual price) so that the PDF/email/admin can reference them
+ * as the snapshot of designs included in the plancha. The extra service
+ * line is rendered separately by the PDF/email when `isPlanchaGrouped` is
+ * true (using the order's `planchaPrice` field).
+ *
+ * Returns `planchaPrice` separately so callers (MP/PayPal payload builders,
+ * PDF, email) can render the service line consistently and never have to
+ * re-fetch the setting.
  */
 async function applyPlanchaModeIfRequested(
   resolved: { orderItems: OrderItem[]; total: number },
   groupAsPlancha: boolean | undefined,
-): Promise<{ orderItems: OrderItem[]; total: number; isPlanchaGrouped: boolean }> {
+): Promise<{
+  orderItems: OrderItem[];
+  total: number;
+  isPlanchaGrouped: boolean;
+  planchaPrice: number;
+}> {
   if (!groupAsPlancha) {
-    return { ...resolved, isPlanchaGrouped: false };
+    return { ...resolved, isPlanchaGrouped: false, planchaPrice: 0 };
   }
   const planchaPrice = await getPlanchaPriceArs();
   return {
     orderItems: resolved.orderItems,
-    total: planchaPrice,
+    total: resolved.total + planchaPrice,
     isPlanchaGrouped: true,
+    planchaPrice,
   };
 }
 
@@ -203,10 +222,8 @@ router.post("/payments/mercadopago/preference", async (req, res): Promise<void> 
       res.status(422).json({ error: resolvedRaw.error });
       return;
     }
-    const { orderItems, total, isPlanchaGrouped } = await applyPlanchaModeIfRequested(
-      resolvedRaw,
-      groupAsPlancha,
-    );
+    const { orderItems, total, isPlanchaGrouped, planchaPrice } =
+      await applyPlanchaModeIfRequested(resolvedRaw, groupAsPlancha);
 
     // Create a pending order first to store orderId in MP external_reference
     const [order] = await db
@@ -225,26 +242,33 @@ router.post("/payments/mercadopago/preference", async (req, res): Promise<void> 
 
     const preference = new Preference(mpClient);
 
-    // When the cart is sold as a single "plancha agrupada", MP must see a single
-    // line item at the plancha price (not the sum of per-design prices) so the
-    // gateway charges the correct amount and the webhook amount-check passes.
-    const mpItems = isPlanchaGrouped
-      ? [
-          {
-            id: "plancha-agrupada",
-            title: `Plancha agrupada (${orderItems.length} diseño${orderItems.length > 1 ? "s" : ""})`,
-            quantity: 1,
-            unit_price: total,
-            currency_id: "ARS",
-          },
-        ]
-      : orderItems.map((it) => ({
-          id: it.productId,
-          title: it.name,
-          quantity: it.quantity,
-          unit_price: it.price,
-          currency_id: "ARS",
-        }));
+    // Item lines sent to MP must sum to `total`. Since plancha grouping is
+    // now an additive service fee (designs + plancha service), we send each
+    // design as its own line and append a single "Armar plancha" service
+    // line when isPlanchaGrouped, so the gateway charges sum(designs) +
+    // planchaPrice and the webhook amount-check passes.
+    const mpItems: Array<{
+      id: string;
+      title: string;
+      quantity: number;
+      unit_price: number;
+      currency_id: "ARS";
+    }> = orderItems.map((it) => ({
+      id: it.productId,
+      title: it.name,
+      quantity: it.quantity,
+      unit_price: it.price,
+      currency_id: "ARS",
+    }));
+    if (isPlanchaGrouped && planchaPrice > 0) {
+      mpItems.push({
+        id: "armar-plancha",
+        title: `Armar plancha (${orderItems.length} diseño${orderItems.length > 1 ? "s" : ""})`,
+        quantity: 1,
+        unit_price: planchaPrice,
+        currency_id: "ARS",
+      });
+    }
 
     const prefBody: Parameters<typeof preference.create>[0]["body"] = {
       external_reference: order.id,
@@ -514,10 +538,8 @@ router.post("/payments/paypal/create-order", async (req, res): Promise<void> => 
       res.status(422).json({ error: resolvedRaw.error });
       return;
     }
-    const { orderItems, total, isPlanchaGrouped } = await applyPlanchaModeIfRequested(
-      resolvedRaw,
-      groupAsPlancha,
-    );
+    const { orderItems, total, isPlanchaGrouped } =
+      await applyPlanchaModeIfRequested(resolvedRaw, groupAsPlancha);
 
     const [order] = await db
       .insert(ordersTable)
@@ -542,7 +564,7 @@ router.post("/payments/paypal/create-order", async (req, res): Promise<void> => 
     const usdAmount = (total / arsToUsd).toFixed(2);
 
     const description = isPlanchaGrouped
-      ? `GraffInk Diseños — Plancha agrupada (${orderItems.length} diseño${orderItems.length > 1 ? "s" : ""})`
+      ? `GraffInk Diseños — ${orderItems.length} diseño${orderItems.length > 1 ? "s" : ""} + armar plancha`
       : `GraffInk Diseños — ${orderItems.length} diseño${orderItems.length > 1 ? "s" : ""}`;
 
     const ppResp = await fetch(`${base}/v2/checkout/orders`, {

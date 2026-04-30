@@ -117,7 +117,7 @@ export function SettingsTab() {
           ) : (
             <>
               <div className="space-y-2">
-                <Label htmlFor="plancha-price">Precio único de plancha agrupada (ARS)</Label>
+                <Label htmlFor="plancha-price">Precio del servicio “Armar plancha” (ARS)</Label>
                 <div className="flex gap-2">
                   <Input
                     id="plancha-price"
@@ -147,10 +147,11 @@ export function SettingsTab() {
               <div className="flex gap-2 text-sm text-white/60 border-t border-white/10 pt-4">
                 <Info className="h-4 w-4 shrink-0 mt-0.5 text-primary" />
                 <p>
-                  Cuando un cliente activa la opción <strong>“Agrupar como plancha”</strong> en
-                  el carrito, el total se reemplaza por este valor único —sin importar la
-                  cantidad de diseños incluidos. El comprobante muestra todos los diseños
-                  como parte de la plancha.
+                  Cuando un cliente activa la opción <strong>“Armar plancha”</strong> en el
+                  carrito, este valor se <strong>suma</strong> al subtotal de los diseños
+                  como un cargo único por el servicio de armado en una sola plancha
+                  imprimible. El comprobante muestra cada diseño con su precio individual y
+                  agrega una línea final “Armar plancha” con este monto.
                 </p>
               </div>
             </>

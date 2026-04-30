@@ -19,8 +19,6 @@ export function CartSheet({ onCheckout }: { onCheckout: () => void }) {
     setGroupAsPlancha,
     planchaPrice,
   } = useCart();
-  const planchaSavings = itemsTotal - planchaPrice;
-  const planchaIsCheaper = planchaSavings > 0;
 
   const handleCheckoutClick = () => {
     setIsCartOpen(false);
@@ -69,13 +67,9 @@ export function CartSheet({ onCheckout }: { onCheckout: () => void }) {
                   {items.map((item) => (
                     <div
                       key={item.id}
-                      className={`flex gap-4 items-center bg-white/5 p-3 border rounded-sm transition-colors ${
-                        groupAsPlancha
-                          ? "border-primary/30 bg-primary/[0.04]"
-                          : "border-white/10"
-                      }`}
+                      className="flex gap-4 items-center bg-white/5 p-3 border border-white/10 rounded-sm"
                     >
-                      <div className={`w-20 h-20 bg-black/50 rounded-sm overflow-hidden shrink-0 ${groupAsPlancha ? "opacity-80" : ""}`}>
+                      <div className="w-20 h-20 bg-black/50 rounded-sm overflow-hidden shrink-0">
                         <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -83,14 +77,13 @@ export function CartSheet({ onCheckout }: { onCheckout: () => void }) {
                           {item.category}
                         </div>
                         <h4 className="text-white font-bold truncate">{item.name}</h4>
-                        {groupAsPlancha ? (
+                        <div className="text-white/80 font-mono text-sm mt-1">
+                          {item.quantity} x ${item.price.toLocaleString("es-AR")}
+                        </div>
+                        {groupAsPlancha && (
                           <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/15 px-1.5 py-0.5 rounded">
                             <Layers className="w-2.5 h-2.5" />
-                            Incluido en la plancha
-                          </div>
-                        ) : (
-                          <div className="text-white/80 font-mono text-sm mt-1">
-                            {item.quantity} x ${item.price.toLocaleString("es-AR")}
+                            Va en la plancha
                           </div>
                         )}
                       </div>
@@ -117,12 +110,11 @@ export function CartSheet({ onCheckout }: { onCheckout: () => void }) {
                       <Layers className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                       <div className="space-y-0.5">
                         <div className="text-sm font-bold text-white">
-                          Agrupar como plancha — ${planchaPrice.toLocaleString("es-AR")}
+                          Armar plancha (+${planchaPrice.toLocaleString("es-AR")})
                         </div>
                         <div className="text-[11px] text-white/50">
-                          {planchaIsCheaper
-                            ? `Ahorrá $${planchaSavings.toLocaleString("es-AR")} llevando todos los diseños en una sola plancha.`
-                            : "Cobramos un único precio por toda la plancha, sin importar la cantidad de diseños."}
+                          Sumamos un único costo de armado para que recibas todos
+                          los diseños en una sola plancha lista para imprimir.
                         </div>
                       </div>
                     </Label>
@@ -133,22 +125,32 @@ export function CartSheet({ onCheckout }: { onCheckout: () => void }) {
                     />
                   </div>
                 </div>
-                <div className="flex items-center justify-between mb-2">
+                {groupAsPlancha && (
+                  <div className="space-y-1 mb-3 text-sm">
+                    <div className="flex items-center justify-between text-white/70">
+                      <span>Subtotal diseños</span>
+                      <span className="font-mono">
+                        ${itemsTotal.toLocaleString("es-AR")}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-primary">
+                      <span className="flex items-center gap-1.5">
+                        <Layers className="h-3 w-3" /> Armar plancha
+                      </span>
+                      <span className="font-mono">
+                        +${planchaPrice.toLocaleString("es-AR")}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-center justify-between mb-2 border-t border-white/10 pt-3">
                   <span className="text-white/80 font-bold uppercase text-sm">
-                    {groupAsPlancha ? "Total plancha" : "Total"}
+                    Total
                   </span>
                   <span className="text-2xl font-black font-mono text-white">
                     ${totalPrice.toLocaleString("es-AR")}
                   </span>
                 </div>
-                {groupAsPlancha && (
-                  <div className="flex items-center justify-between mb-4 text-xs text-white/50">
-                    <span>Subtotal sin agrupar</span>
-                    <span className="font-mono line-through">
-                      ${itemsTotal.toLocaleString("es-AR")}
-                    </span>
-                  </div>
-                )}
                 <Button
                   onClick={handleCheckoutClick}
                   className="w-full h-14 text-lg font-bold bg-primary text-white hover:bg-primary/90 mt-2"

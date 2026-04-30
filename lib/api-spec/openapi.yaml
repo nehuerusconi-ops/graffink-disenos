@@ -551,7 +551,7 @@ components:
             required: [productId, quantity]
         groupAsPlancha:
           type: boolean
-          description: Si es true, el carrito se cobra como una única "plancha agrupada" al precio configurado en /settings.
+          description: Si es true, se agrega al total un cargo único por el servicio "Armar plancha" (precio configurado en /settings) además de cobrar cada diseño a su precio normal.
       required: [customerName, customerEmail, items]
 
     HealthStatus:
@@ -576,7 +576,7 @@ components:
         planchaGroupingPrice:
           type: integer
           minimum: 0
-          description: Precio en ARS para "armar una plancha" (cobrar varios diseños como una sola plancha).
+          description: Precio en ARS del servicio "Armar plancha". Se SUMA al subtotal de los diseños cuando el cliente activa la opción en el carrito; no reemplaza el total.
       required: [planchaGroupingPrice]
 
     AppSettingsInput:

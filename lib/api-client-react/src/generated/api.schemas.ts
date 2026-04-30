@@ -25,7 +25,7 @@ export interface CheckoutInput {
    * @maxItems 50
    */
   items: CheckoutInputItemsItem[];
-  /** Si es true, el carrito se cobra como una única "plancha agrupada" al precio configurado en /settings. */
+  /** Si es true, se agrega al total un cargo único por el servicio "Armar plancha" (precio configurado en /settings) además de cobrar cada diseño a su precio normal. */
   groupAsPlancha?: boolean;
 }
 
@@ -39,7 +39,7 @@ export interface ErrorResponse {
 
 export interface AppSettings {
   /**
-   * Precio en ARS para "armar una plancha" (cobrar varios diseños como una sola plancha).
+   * Precio en ARS del servicio "Armar plancha". Se SUMA al subtotal de los diseños cuando el cliente activa la opción en el carrito; no reemplaza el total.
    * @minimum 0
    */
   planchaGroupingPrice: number;
