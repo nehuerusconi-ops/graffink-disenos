@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { seedCategoriesIfEmpty } from "./routes/categories";
 
 const rawPort = process.env["PORT"];
 
@@ -22,4 +23,7 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+  // Fire-and-forget: ensure the seven legacy categories exist on first boot
+  // so the storefront never renders with an empty category filter row.
+  void seedCategoriesIfEmpty();
 });

@@ -1,12 +1,9 @@
 import { useState, useMemo } from "react";
-import { CATEGORIES, Category, Product, PLANCHA_ARMADA_CATEGORY } from "@/data/products";
+import { Category, Product, PLANCHA_ARMADA_CATEGORY } from "@/data/products";
 import { ProductCard } from "./ProductCard";
 import { Input } from "@/components/ui/input";
 import { Search, Loader2 } from "lucide-react";
-
-// Categories shown in the main storefront filter bar. "Plancha armada" is
-// excluded — those products live in their own dedicated section.
-const STOREFRONT_CATEGORIES = CATEGORIES.filter((c) => c !== PLANCHA_ARMADA_CATEGORY);
+import { useListCategories } from "@workspace/api-client-react";
 
 export function ProductGrid({
   products,
@@ -20,6 +17,16 @@ export function ProductGrid({
   onCategorySelect: (cat: Category | "All") => void;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
+  const categoriesQuery = useListCategories();
+
+  // Storefront filter pills — all admin-managed categories except the
+  // reserved "Plancha armada" slot, which has its own dedicated section.
+  const storefrontCategories = useMemo<string[]>(() => {
+    const rows = categoriesQuery.data ?? [];
+    return rows
+      .filter((c) => c.name !== PLANCHA_ARMADA_CATEGORY)
+      .map((c) => c.name);
+  }, [categoriesQuery.data]);
 
   const filteredProducts = useMemo(() => {
     return products
@@ -51,7 +58,7 @@ export function ProductGrid({
               >
                 Todos
               </button>
-              {STOREFRONT_CATEGORIES.map((cat) => (
+              {storefrontCategories.map((cat) => (
                 <button
                   key={cat}
                   onClick={() => onCategorySelect(cat)}

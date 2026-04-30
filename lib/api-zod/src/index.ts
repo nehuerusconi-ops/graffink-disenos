@@ -16,6 +16,8 @@ export * from "./generated/api";
 export type {
   AppSettings,
   AppSettingsInput,
+  Category,
+  CategoryInput,
   CheckoutInput,
   CheckoutInputItemsItem,
   CreateMercadoPagoPreference200,

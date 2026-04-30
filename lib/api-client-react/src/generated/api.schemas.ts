@@ -103,6 +103,24 @@ export interface ProductUpdate {
   isPublished?: boolean;
 }
 
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  isSystem: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CategoryInput {
+  /**
+   * @minLength 1
+   * @maxLength 60
+   */
+  name: string;
+}
+
 export interface OrderItem {
   productId: string;
   name: string;

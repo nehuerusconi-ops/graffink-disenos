@@ -1,7 +1,18 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, RefreshCw, DollarSign, Info, Layers, Save } from "lucide-react";
+import {
+  Loader2,
+  RefreshCw,
+  DollarSign,
+  Info,
+  Layers,
+  Save,
+  Tag,
+  Plus,
+  Trash2,
+  Lock,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +20,10 @@ import {
   useGetAppSettings,
   useUpdateAppSettings,
   getGetAppSettingsQueryKey,
+  useListCategories,
+  useCreateCategory,
+  useDeleteCategory,
+  getListCategoriesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -75,6 +90,56 @@ export function SettingsTab() {
     }
   }, [settingsQuery.data, planchaPriceInput]);
 
+  // ---------------------------------------------------------------------------
+  // Categorías administrables
+  // ---------------------------------------------------------------------------
+  const categoriesQuery = useListCategories();
+  const createCategoryMut = useCreateCategory();
+  const deleteCategoryMut = useDeleteCategory();
+  const [newCategoryName, setNewCategoryName] = useState("");
+
+  const handleAddCategory = async () => {
+    const name = newCategoryName.trim();
+    if (name.length === 0) {
+      toast.error("Escribí un nombre antes de agregar");
+      return;
+    }
+    try {
+      await createCategoryMut.mutateAsync({ data: { name } });
+      await queryClient.invalidateQueries({ queryKey: getListCategoriesQueryKey() });
+      setNewCategoryName("");
+      toast.success(`Categoría “${name}” creada`);
+    } catch (err: unknown) {
+      // Orval surfaces axios-style errors with a `response.data.error` string
+      // when the server returns a JSON body. Fallback to message otherwise so
+      // the admin always sees something actionable.
+      const fallback = err instanceof Error ? err.message : "Error al crear";
+      const apiMsg =
+        typeof err === "object" && err !== null && "response" in err
+          ? ((err as { response?: { data?: { error?: string } } }).response?.data
+              ?.error ?? fallback)
+          : fallback;
+      toast.error(apiMsg);
+    }
+  };
+
+  const handleDeleteCategory = async (id: string, name: string) => {
+    if (!window.confirm(`¿Borrar la categoría “${name}”?`)) return;
+    try {
+      await deleteCategoryMut.mutateAsync({ id });
+      await queryClient.invalidateQueries({ queryKey: getListCategoriesQueryKey() });
+      toast.success(`Categoría “${name}” borrada`);
+    } catch (err: unknown) {
+      const fallback = err instanceof Error ? err.message : "Error al borrar";
+      const apiMsg =
+        typeof err === "object" && err !== null && "response" in err
+          ? ((err as { response?: { data?: { error?: string } } }).response?.data
+              ?.error ?? fallback)
+          : fallback;
+      toast.error(apiMsg);
+    }
+  };
+
   const handleSavePlanchaPrice = async () => {
     const n = Number(planchaPriceInput);
     if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
@@ -104,6 +169,115 @@ export function SettingsTab() {
           Ajustes del sistema y variables de entorno.
         </p>
       </div>
+
+      <Card className="bg-card border-card-border">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base font-bold uppercase tracking-wider">
+            <Tag className="h-4 w-4 text-primary" />
+            Categorías del catálogo
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="new-category">Agregar nueva categoría</Label>
+            <div className="flex gap-2">
+              <Input
+                id="new-category"
+                type="text"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder='Ej: "Lali", "Airbag", "Navidad"'
+                maxLength={60}
+                className="flex-1"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void handleAddCategory();
+                  }
+                }}
+              />
+              <Button
+                onClick={() => void handleAddCategory()}
+                disabled={createCategoryMut.isPending}
+                className="bg-primary hover:bg-primary/90"
+              >
+                {createCategoryMut.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4 mr-2" /> Agregar
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-2 border-t border-white/10 pt-4">
+            <p className="text-sm text-white/60 font-semibold uppercase tracking-wider">
+              Categorías actuales
+            </p>
+            {categoriesQuery.isLoading ? (
+              <div className="flex items-center gap-2 text-white/50 text-sm">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Cargando categorías…
+              </div>
+            ) : categoriesQuery.isError ? (
+              <p className="text-sm text-red-400">No se pudo cargar el listado.</p>
+            ) : (
+              <ul className="divide-y divide-white/10 border border-white/10 rounded-sm">
+                {(categoriesQuery.data ?? []).map((c) => (
+                  <li
+                    key={c.id}
+                    className="flex items-center justify-between px-3 py-2"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-white">{c.name}</span>
+                      {c.isSystem && (
+                        <Badge
+                          variant="secondary"
+                          className="gap-1 text-[10px] uppercase"
+                        >
+                          <Lock className="h-3 w-3" /> Sistema
+                        </Badge>
+                      )}
+                    </div>
+                    {c.isSystem ? (
+                      <span className="text-xs text-white/40">Protegida</span>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => void handleDeleteCategory(c.id, c.name)}
+                        disabled={deleteCategoryMut.isPending}
+                        className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </li>
+                ))}
+                {(categoriesQuery.data ?? []).length === 0 && (
+                  <li className="px-3 py-3 text-sm text-white/50">
+                    Todavía no hay categorías cargadas.
+                  </li>
+                )}
+              </ul>
+            )}
+          </div>
+
+          <div className="flex gap-2 text-sm text-white/60 border-t border-white/10 pt-4">
+            <Info className="h-4 w-4 shrink-0 mt-0.5 text-primary" />
+            <p>
+              Las categorías que agregues acá aparecen automáticamente como
+              filtros en el catálogo público y en el desplegable del formulario
+              de productos. <strong>“Plancha armada”</strong> es una categoría
+              del sistema y no se puede borrar porque alimenta una sección
+              propia de la home. No vas a poder borrar una categoría si todavía
+              hay diseños usándola — primero cambialos de categoría.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="bg-card border-card-border">
         <CardHeader className="pb-3">

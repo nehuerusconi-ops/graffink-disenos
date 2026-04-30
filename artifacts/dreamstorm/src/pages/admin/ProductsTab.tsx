@@ -4,6 +4,7 @@ import {
   useCreateProduct,
   useUpdateProduct,
   useDeleteProduct,
+  useListCategories,
 } from "@workspace/api-client-react";
 import type { Product as ApiProduct } from "@workspace/api-client-react";
 import { uploadFile } from "@/lib/uploadFile";
@@ -19,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { CATEGORIES, Category, type ProductSpec } from "@/data/products";
+import { Category, type ProductSpec } from "@/data/products";
 import { toStorageUrl } from "@/lib/storageUrl";
 import { toast } from "sonner";
 import { Loader2, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
@@ -40,6 +41,10 @@ interface FormState {
 const EMPTY_FORM: FormState = {
   id: "",
   name: "",
+  // Initial value gets replaced with the first available category once the
+  // /categories query resolves (see useEffect inside ProductsTab). We keep
+  // "Streetwear" as a sensible default for the empty state since it is one
+  // of the seven categories seeded on first server boot.
   category: "Streetwear",
   price: "",
   imagePath: "",
@@ -69,6 +74,8 @@ export function ProductsTab() {
   const createMut = useCreateProduct();
   const updateMut = useUpdateProduct();
   const deleteMut = useDeleteProduct();
+  const { data: categories } = useListCategories();
+  const categoryOptions: string[] = (categories ?? []).map((c) => c.name);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -236,7 +243,7 @@ export function ProductsTab() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map((c) => (
+                  {categoryOptions.map((c) => (
                     <SelectItem key={c} value={c}>{c}</SelectItem>
                   ))}
                 </SelectContent>

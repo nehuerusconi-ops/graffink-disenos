@@ -1,11 +1,9 @@
-export type Category =
-  | "Streetwear"
-  | "Anime"
-  | "Frases"
-  | "Deportes"
-  | "Vintage"
-  | "Infantil"
-  | "Plancha armada";
+// Categories are admin-managed at runtime via /api/categories. The string
+// type intentionally accepts any value (including custom ones like "Lali"
+// or "Airbag" added from the admin panel) — the storefront fetches the
+// authoritative list from the API. The literal-union version that lived
+// here previously is now seeded into the database on first server boot.
+export type Category = string;
 
 export interface ProductSpec {
   key: string;
@@ -24,6 +22,12 @@ export interface Product {
   specifications?: ProductSpec[] | null;
 }
 
+/**
+ * @deprecated Use `useListCategories()` from `@workspace/api-client-react`
+ * to render the live, admin-managed list. This static array is kept only
+ * as a documentation reference of the seven categories that get seeded
+ * into the database on first server boot.
+ */
 export const CATEGORIES: Category[] = [
   "Streetwear",
   "Anime",

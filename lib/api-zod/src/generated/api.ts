@@ -147,6 +147,36 @@ export const DeleteProductParams = zod.object({
 });
 
 /**
+ * @summary List product categories (public)
+ */
+export const ListCategoriesResponseItem = zod.object({
+  id: zod.string(),
+  name: zod.string(),
+  slug: zod.string(),
+  isSystem: zod.boolean(),
+  sortOrder: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListCategoriesResponse = zod.array(ListCategoriesResponseItem);
+
+/**
+ * @summary Create category (admin)
+ */
+export const createCategoryBodyNameMax = 60;
+
+export const CreateCategoryBody = zod.object({
+  name: zod.string().min(1).max(createCategoryBodyNameMax),
+});
+
+/**
+ * @summary Delete category (admin)
+ */
+export const DeleteCategoryParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+/**
  * @summary List orders (admin)
  */
 export const ListOrdersResponseItem = zod.object({
