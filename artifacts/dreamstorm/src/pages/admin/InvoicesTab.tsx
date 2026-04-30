@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { toast } from "sonner";
 import { useListOrders } from "@workspace/api-client-react";
 import type { Order } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -28,30 +29,102 @@ import {
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
-function downloadInvoicePdf(orderId: string): void {
-  // Clerk session cookie is sent automatically (same origin); the server's
-  // requireAdmin middleware will validate it. Browser will start the download.
-  window.open(`${BASE}/api/orders/${orderId}/invoice-pdf`, "_blank");
+// Map HTTP error codes to user-friendly Spanish messages. We single out 401/403
+// because those are the ones admins hit most often (Clerk session expired or
+// they no longer have admin role) and the previous behaviour of opening a
+// blank tab with raw JSON was confusing.
+function describeDownloadError(status: number): string {
+  if (status === 401) {
+    return "Tu sesión expiró. Iniciá sesión nuevamente para descargar.";
+  }
+  if (status === 403) {
+    return "No tenés permisos de administrador para descargar este archivo.";
+  }
+  return `No se pudo descargar el archivo (error ${status}).`;
+}
+
+// Triggers a download of `blob` with the given filename without navigating
+// away or opening a new tab. We create a transient <a> element, click it
+// programmatically, then revoke the object URL to avoid leaking memory.
+function triggerBlobDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // Defer revocation slightly so the browser has time to start the download.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Extracts a filename from a Content-Disposition header, falling back to the
+// supplied default. Handles both `filename="…"` and unquoted forms.
+function parseFilename(header: string | null, fallback: string): string {
+  if (!header) return fallback;
+  const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(header);
+  return match?.[1] ?? fallback;
+}
+
+async function downloadInvoicePdf(orderId: string): Promise<void> {
+  // Authenticated fetch (Clerk session cookie is sent automatically). On
+  // success we stream the response into a Blob and trigger a download in the
+  // current tab. On failure we surface a toast — no new tab is opened so the
+  // admin doesn't end up staring at a blank page with raw JSON.
+  try {
+    const res = await fetch(`${BASE}/api/orders/${orderId}/invoice-pdf`, {
+      credentials: "include",
+    });
+    if (!res.ok) {
+      toast.error(describeDownloadError(res.status));
+      return;
+    }
+    const blob = await res.blob();
+    const filename = parseFilename(
+      res.headers.get("content-disposition"),
+      `comprobante-${orderId}.pdf`,
+    );
+    triggerBlobDownload(blob, filename);
+  } catch {
+    toast.error("No se pudo descargar el comprobante. Revisá tu conexión.");
+  }
 }
 
 type PaymentMethodFilter = "all" | "paypal" | "mercadopago" | "transferencia";
 
-function downloadOrdersCsv(
+async function downloadOrdersCsv(
   method: PaymentMethodFilter,
   from: string,
   to: string,
-): void {
-  // Clerk session cookie is sent automatically (same origin); the server's
-  // requireAdmin middleware validates the user. The query string keeps the
-  // server-side filter in sync with what the admin sees in the table — the
-  // date range is applied server-side so the CSV exactly mirrors the
+): Promise<void> {
+  // Authenticated fetch instead of `window.open` so that 401/403 responses
+  // can be surfaced as a toast in the original tab. The query string keeps
+  // the server-side filter in sync with what the admin sees in the table —
+  // the date range is applied server-side so the CSV exactly mirrors the
   // accounting period the admin asked for.
   const params = new URLSearchParams();
   if (method !== "all") params.set("paymentMethod", method);
   if (from) params.set("from", from);
   if (to) params.set("to", to);
   const qs = params.toString();
-  window.open(`${BASE}/api/orders/export${qs ? `?${qs}` : ""}`, "_blank");
+  try {
+    const res = await fetch(
+      `${BASE}/api/orders/export${qs ? `?${qs}` : ""}`,
+      { credentials: "include" },
+    );
+    if (!res.ok) {
+      toast.error(describeDownloadError(res.status));
+      return;
+    }
+    const blob = await res.blob();
+    const filename = parseFilename(
+      res.headers.get("content-disposition"),
+      "ordenes.csv",
+    );
+    triggerBlobDownload(blob, filename);
+  } catch {
+    toast.error("No se pudo descargar el CSV. Revisá tu conexión.");
+  }
 }
 
 const PAYMENT_LABELS: Record<string, string> = {
