@@ -11,6 +11,7 @@ import SignInPage from "@/pages/SignIn";
 import SignUpPage from "@/pages/SignUp";
 import AdminPage from "@/pages/Admin";
 import CheckoutResult from "@/pages/CheckoutResult";
+import MisCompras from "@/pages/MisCompras";
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as
   | string
@@ -87,6 +88,7 @@ function App() {
                 <Route path="/checkout/success" component={() => <CheckoutResult type="success" />} />
                 <Route path="/checkout/pending" component={() => <CheckoutResult type="pending" />} />
                 <Route path="/checkout/failure" component={() => <CheckoutResult type="failure" />} />
+                <Route path="/mis-compras" component={MisCompras} />
                 <Route path="/" component={Home} />
                 <Route component={Home} />
               </Switch>

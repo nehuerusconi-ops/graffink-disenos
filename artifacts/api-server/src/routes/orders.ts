@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, sql, and, gte } from "drizzle-orm";
+import { z } from "zod";
 import { db, ordersTable } from "@workspace/db";
 import type { OrderItem } from "@workspace/db";
 import { CreateOrderBody, GetOrderParams } from "@workspace/api-zod";
@@ -156,6 +157,32 @@ router.get("/orders/stats", requireAuth, async (_req, res): Promise<void> => {
     topProducts,
     revenueByMethod: byMethod,
   });
+});
+
+// Public endpoint: returns paid orders for a given buyer email so they can
+// re-download their files without needing the original confirmation email.
+// Only exposes non-sensitive order data (no internal IDs beyond invoiceNumber).
+// IMPORTANT: must be registered before GET /orders/:id to avoid route shadowing.
+router.get("/orders/by-email", async (req, res): Promise<void> => {
+  const parsed = z.object({ email: z.string().email() }).safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Email inválido" });
+    return;
+  }
+  const email = parsed.data.email.trim().toLowerCase();
+  const rows = await db
+    .select({
+      invoiceNumber: ordersTable.invoiceNumber,
+      customerName: ordersTable.customerName,
+      items: ordersTable.items,
+      total: ordersTable.total,
+      paymentMethod: ordersTable.paymentMethod,
+      createdAt: ordersTable.createdAt,
+    })
+    .from(ordersTable)
+    .where(and(eq(ordersTable.customerEmail, email), eq(ordersTable.status, "paid")))
+    .orderBy(desc(ordersTable.createdAt));
+  res.json(rows);
 });
 
 router.get("/orders/:id", requireAuth, async (req, res): Promise<void> => {

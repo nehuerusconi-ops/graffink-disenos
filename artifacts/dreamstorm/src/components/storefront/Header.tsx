@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { ShoppingCart, Menu, X, Lock } from "lucide-react";
+import { ShoppingCart, Menu, X, Lock, PackageOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "./CartContext";
 import { motion, AnimatePresence } from "framer-motion";
@@ -78,6 +78,16 @@ export function Header() {
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
+            className="hidden md:inline-flex items-center gap-1.5 text-white/60 hover:text-white hover:bg-white/10 text-sm font-medium"
+            onClick={() => navigate("/mis-compras")}
+            title="Ver mis compras"
+          >
+            <PackageOpen className="h-4 w-4" />
+            Mis compras
+          </Button>
+
+          <Button
+            variant="ghost"
             size="icon"
             className="hidden md:inline-flex text-white/70 hover:text-white hover:bg-white/10"
             onClick={() => navigate("/admin")}
@@ -138,6 +148,13 @@ export function Header() {
                   {link.name}
                 </button>
               ))}
+              <button
+                onClick={() => { setIsMobileMenuOpen(false); navigate("/mis-compras"); }}
+                className="flex items-center gap-2 text-lg font-medium text-white/70 hover:text-white text-left py-2"
+              >
+                <PackageOpen className="w-5 h-5" />
+                Mis compras
+              </button>
             </nav>
           </motion.div>
         )}
