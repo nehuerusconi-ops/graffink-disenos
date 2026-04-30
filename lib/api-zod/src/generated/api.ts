@@ -171,6 +171,12 @@ export const ListOrdersResponseItem = zod.object({
   confirmationSource: zod
     .enum(["webhook", "manual", "paypal-capture"])
     .nullish(),
+  arsToUsdRate: zod
+    .string()
+    .nullish()
+    .describe(
+      'ARS→USD exchange rate that was applied at the moment a PayPal\norder was created. Stored as a decimal string (e.g. \"1185.5000\")\nfor audit purposes. Null for non-PayPal orders or for orders\ncreated before this field existed.\n',
+    ),
   createdAt: zod.coerce.date(),
 });
 export const ListOrdersResponse = zod.array(ListOrdersResponseItem);
@@ -262,6 +268,12 @@ export const GetOrderResponse = zod.object({
   confirmationSource: zod
     .enum(["webhook", "manual", "paypal-capture"])
     .nullish(),
+  arsToUsdRate: zod
+    .string()
+    .nullish()
+    .describe(
+      'ARS→USD exchange rate that was applied at the moment a PayPal\norder was created. Stored as a decimal string (e.g. \"1185.5000\")\nfor audit purposes. Null for non-PayPal orders or for orders\ncreated before this field existed.\n',
+    ),
   createdAt: zod.coerce.date(),
 });
 
@@ -398,6 +410,12 @@ export const CapturePaypalOrderResponse = zod.object({
   confirmationSource: zod
     .enum(["webhook", "manual", "paypal-capture"])
     .nullish(),
+  arsToUsdRate: zod
+    .string()
+    .nullish()
+    .describe(
+      'ARS→USD exchange rate that was applied at the moment a PayPal\norder was created. Stored as a decimal string (e.g. \"1185.5000\")\nfor audit purposes. Null for non-PayPal orders or for orders\ncreated before this field existed.\n',
+    ),
   createdAt: zod.coerce.date(),
 });
 

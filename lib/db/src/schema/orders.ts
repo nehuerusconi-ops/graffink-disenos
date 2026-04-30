@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp, varchar, jsonb, serial, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, timestamp, varchar, jsonb, serial, boolean, numeric } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -33,6 +33,7 @@ export const ordersTable = pgTable("orders", {
   confirmationSource: text("confirmation_source", {
     enum: ["webhook", "manual", "paypal-capture"],
   }),
+  arsToUsdRate: numeric("ars_to_usd_rate", { precision: 12, scale: 4 }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

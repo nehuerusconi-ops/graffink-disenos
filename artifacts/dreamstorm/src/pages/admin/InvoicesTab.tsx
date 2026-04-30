@@ -373,6 +373,21 @@ export function InvoicesTab() {
                     <span className="text-white/30 text-xs">Sin dato (orden anterior a esta función)</span>
                   )}
                 </div>
+                {selected.paymentMethod === "paypal" && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-white/40 mb-1">Tipo de cambio aplicado</p>
+                    {selected.arsToUsdRate ? (
+                      <p className="text-white font-mono text-sm">
+                        1 USD = ${parseFloat(selected.arsToUsdRate).toLocaleString("es-AR", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} ARS{" "}
+                        <span className="text-white/40 text-xs">
+                          (≈ USD {(selected.total / parseFloat(selected.arsToUsdRate)).toFixed(2)})
+                        </span>
+                      </p>
+                    ) : (
+                      <span className="text-white/30 text-xs">Sin dato (orden anterior a esta función)</span>
+                    )}
+                  </div>
+                )}
                 <div className="border-t border-white/5 pt-3">
                   <p className="text-[10px] uppercase tracking-widest text-white/40 mb-2">
                     Diseños

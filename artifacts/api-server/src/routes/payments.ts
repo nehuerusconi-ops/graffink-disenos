@@ -541,6 +541,13 @@ router.post("/payments/paypal/create-order", async (req, res): Promise<void> => 
     const { orderItems, total, isPlanchaGrouped } =
       await applyPlanchaModeIfRequested(resolvedRaw, groupAsPlancha);
 
+    // Resolve the ARS→USD rate BEFORE creating the order so we can persist it
+    // alongside the row. Storing the rate gives an audit trail of which tasa
+    // was applied at the moment the order was created (the live rate may
+    // change before capture or refund).
+    const { rate: arsToUsd } = await getArsToUsdRate();
+    const usdAmount = (total / arsToUsd).toFixed(2);
+
     const [order] = await db
       .insert(ordersTable)
       .values({
@@ -552,16 +559,12 @@ router.post("/payments/paypal/create-order", async (req, res): Promise<void> => 
         isPlanchaGrouped,
         paymentMethod: "paypal",
         status: "pending",
+        arsToUsdRate: arsToUsd.toString(),
       })
       .returning();
 
     const token = await getPaypalAccessToken();
     const base = paypalBase();
-
-    // Convert ARS to USD using the configured rate (PAYPAL_ARS_TO_USD_RATE env var,
-    // live dolarapi.com rate with 1h cache, or 1200 default).
-    const { rate: arsToUsd } = await getArsToUsdRate();
-    const usdAmount = (total / arsToUsd).toFixed(2);
 
     const description = isPlanchaGrouped
       ? `GraffInk Diseños — ${orderItems.length} diseño${orderItems.length > 1 ? "s" : ""} + armar plancha`

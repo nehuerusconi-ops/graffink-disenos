@@ -751,6 +751,14 @@ components:
           type: string
           enum: [webhook, manual, paypal-capture]
           nullable: true
+        arsToUsdRate:
+          type: string
+          nullable: true
+          description: |
+            ARS→USD exchange rate that was applied at the moment a PayPal
+            order was created. Stored as a decimal string (e.g. "1185.5000")
+            for audit purposes. Null for non-PayPal orders or for orders
+            created before this field existed.
         createdAt:
           type: string
           format: date-time

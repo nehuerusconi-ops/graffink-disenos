@@ -151,6 +151,12 @@ export interface Order {
   paymentMethod: OrderPaymentMethod;
   status: OrderStatus;
   confirmationSource?: OrderConfirmationSource;
+  /** ARS→USD exchange rate that was applied at the moment a PayPal
+order was created. Stored as a decimal string (e.g. "1185.5000")
+for audit purposes. Null for non-PayPal orders or for orders
+created before this field existed.
+ */
+  arsToUsdRate?: string | null;
   createdAt: string;
 }
 
