@@ -142,6 +142,7 @@ function printInvoice(order: Order) {
             <h2>Facturado a</h2>
             <div style="font-weight:700;font-size:15px">${escapeHtml(order.customerName)}</div>
             <div style="color:#666">${escapeHtml(order.customerEmail)}</div>
+            <div style="color:#666">DNI / CUIT: ${order.customerDni ? escapeHtml(order.customerDni) : "—"}</div>
           </div>
           <div>
             <h2>Forma de pago</h2>
