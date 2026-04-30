@@ -3,19 +3,13 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Palette, MessageCircle, Send, CheckCircle2 } from "lucide-react";
+import { Palette, Send, CheckCircle2 } from "lucide-react";
+
+const CONTACT_EMAIL = "graffink.desing@gmail.com";
 
 export function CustomDesign() {
   const [form, setForm] = useState({ name: "", email: "", description: "" });
   const [sent, setSent] = useState(false);
-
-  const handleWhatsApp = () => {
-    const base = "https://wa.me/5491100000000";
-    const text = form.description.trim()
-      ? `Hola! Quiero un diseño personalizado:\n\n${form.description.trim()}${form.name ? `\n\nNombre: ${form.name}` : ""}`
-      : "Hola! Quiero consultar por un diseño personalizado.";
-    window.open(`${base}?text=${encodeURIComponent(text)}`, "_blank");
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,7 +17,7 @@ export function CustomDesign() {
     const body = encodeURIComponent(
       `Nombre: ${form.name}\nEmail: ${form.email}\n\nDescripción del diseño:\n${form.description}`
     );
-    window.location.href = `mailto:hola@dtflab.com?subject=${subject}&body=${body}`;
+    window.location.href = `mailto:${CONTACT_EMAIL}?subject=${subject}&body=${body}`;
     setSent(true);
   };
 
@@ -67,14 +61,15 @@ export function CustomDesign() {
               ))}
             </ul>
 
-            <button
-              type="button"
-              onClick={handleWhatsApp}
-              className="inline-flex items-center gap-3 px-6 py-3 bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold rounded-sm transition-colors"
+            <a
+              href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
+                "Consulta diseño personalizado — GraffInk Diseños",
+              )}`}
+              className="inline-flex items-center gap-3 px-6 py-3 bg-primary hover:bg-primary/90 text-white font-bold rounded-sm transition-colors"
             >
-              <MessageCircle className="h-5 w-5" />
-              Consultar por WhatsApp
-            </button>
+              <Send className="h-5 w-5" />
+              Escribinos a {CONTACT_EMAIL}
+            </a>
           </motion.div>
 
           <motion.div
@@ -154,7 +149,7 @@ export function CustomDesign() {
                     Enviar consulta
                   </Button>
                   <p className="text-xs text-white/30 text-center">
-                    También podés escribirnos por WhatsApp si preferís respuesta inmediata.
+                    O escribinos directo a {CONTACT_EMAIL} y te respondemos a la brevedad.
                   </p>
                 </form>
               </div>

@@ -1,8 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FaInstagram, FaTiktok } from "react-icons/fa6";
-import { MessageCircle } from "lucide-react";
+import { Mail } from "lucide-react";
 import { toast } from "sonner";
+
+const CONTACT_EMAIL = "graffink.desing@gmail.com";
 
 export function Footer() {
   const handleSubscribe = (e: React.FormEvent) => {
@@ -32,18 +34,22 @@ export function Footer() {
             <div className="text-3xl font-black tracking-tighter text-white uppercase flex items-center gap-2 mb-6">
               <span className="text-primary">GraffInk</span>&nbsp;Diseños
             </div>
-            <p className="text-white/60 text-lg max-w-sm mb-8 font-medium">
+            <p className="text-white/60 text-lg max-w-sm mb-6 font-medium">
               Diseños DTF profesionales para marcas que quieren destacar. Archivos listos para imprimir, sin vueltas.
             </p>
+            <a
+              href={`mailto:${CONTACT_EMAIL}`}
+              className="inline-flex items-center gap-2 text-white/80 hover:text-primary transition-colors font-medium mb-6"
+            >
+              <Mail className="w-4 h-4" />
+              {CONTACT_EMAIL}
+            </a>
             <div className="flex gap-4">
               <a href="#" className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-primary hover:border-primary transition-colors">
                 <FaInstagram className="w-5 h-5" />
               </a>
               <a href="#" className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-primary hover:border-primary transition-colors">
                 <FaTiktok className="w-5 h-5" />
-              </a>
-              <a href="#" className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-primary hover:border-primary transition-colors">
-                <MessageCircle className="w-5 h-5" />
               </a>
             </div>
           </div>

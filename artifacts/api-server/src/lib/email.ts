@@ -355,12 +355,21 @@ export async function sendOrderConfirmationEmail(order: Order): Promise<void> {
     await transporter.sendMail({
       from: `"GraffInk Diseños" <${GMAIL_USER}>`,
       to: order.customerEmail,
+      // BCC the store inbox so the admin gets a hidden copy of every paid
+      // order (with the same PDF attached). Hidden so the buyer doesn't see
+      // the internal address in their email headers.
+      bcc: GMAIL_USER,
       subject: `✅ GraffInk Diseños — Factura N° ${invoiceStr} confirmada`,
       html,
       attachments: attachments.length > 0 ? attachments : undefined,
     });
     logger.info(
-      { orderId: order.id, to: order.customerEmail, hasPdf: attachments.length > 0 },
+      {
+        orderId: order.id,
+        to: order.customerEmail,
+        bccAdmin: true,
+        hasPdf: attachments.length > 0,
+      },
       "Order confirmation email sent",
     );
   } catch (err) {
