@@ -56,10 +56,18 @@ export function Header() {
       <div className="container mx-auto px-4 md:px-6 flex items-center justify-between">
         <button
           onClick={() => scrollTo("hero")}
-          className="flex items-center"
+          className="flex items-center gap-2 sm:gap-3"
           aria-label="GraffInk Diseños - Inicio"
         >
-          <img src="/logo.png" alt="GraffInk Diseños" className="h-12 w-auto" />
+          <img src="/logo.png" alt="GraffInk Diseños" className="h-10 sm:h-12 w-auto shrink-0" />
+          <span className="flex flex-col leading-none text-left">
+            <span className="font-black uppercase tracking-tight text-white text-base sm:text-lg">
+              GraffInk
+            </span>
+            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] text-primary">
+              Diseños
+            </span>
+          </span>
         </button>
 
         {/* Desktop Nav */}

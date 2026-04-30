@@ -3,13 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useCart } from "./CartContext";
-import { Trash2, ShoppingBag, Layers } from "lucide-react";
+import { Trash2, ShoppingBag, Layers, Minus, Plus } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 export function CartSheet({ onCheckout }: { onCheckout: () => void }) {
   const {
     items,
     removeItem,
+    updateQuantity,
     totalItems,
     totalPrice,
     itemsTotal,
@@ -67,21 +68,60 @@ export function CartSheet({ onCheckout }: { onCheckout: () => void }) {
                   {items.map((item) => (
                     <div
                       key={item.id}
-                      className="flex gap-4 items-center bg-white/5 p-3 border border-white/10 rounded-sm"
+                      className="flex gap-4 items-start bg-white/5 p-3 border border-white/10 rounded-sm"
                     >
                       <div className="w-20 h-20 bg-black/50 rounded-sm overflow-hidden shrink-0">
                         <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs text-primary font-bold uppercase tracking-wider mb-1">
-                          {item.category}
+                      <div className="flex-1 min-w-0 flex flex-col gap-2">
+                        <div>
+                          <div className="text-xs text-primary font-bold uppercase tracking-wider mb-1">
+                            {item.category}
+                          </div>
+                          <h4 className="text-white font-bold truncate">{item.name}</h4>
+                          <div className="text-white/60 font-mono text-xs mt-0.5">
+                            ${item.price.toLocaleString("es-AR")} c/u
+                          </div>
                         </div>
-                        <h4 className="text-white font-bold truncate">{item.name}</h4>
-                        <div className="text-white/80 font-mono text-sm mt-1">
-                          {item.quantity} x ${item.price.toLocaleString("es-AR")}
+
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="inline-flex items-center border border-white/15 rounded-sm bg-black/40">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                              className="h-8 w-8 text-white/70 hover:text-white hover:bg-white/10 rounded-none"
+                              aria-label={`Quitar una unidad de ${item.name}`}
+                              data-testid={`button-decrement-${item.id}`}
+                            >
+                              <Minus className="w-3.5 h-3.5" />
+                            </Button>
+                            <span
+                              className="min-w-[2rem] text-center text-sm font-mono font-bold text-white px-1 select-none"
+                              data-testid={`text-quantity-${item.id}`}
+                            >
+                              {item.quantity}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                              className="h-8 w-8 text-white/70 hover:text-white hover:bg-white/10 rounded-none"
+                              aria-label={`Agregar una unidad de ${item.name}`}
+                              data-testid={`button-increment-${item.id}`}
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                          <span className="text-white font-mono font-bold text-sm whitespace-nowrap">
+                            ${(item.price * item.quantity).toLocaleString("es-AR")}
+                          </span>
                         </div>
+
                         {groupAsPlancha && (
-                          <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/15 px-1.5 py-0.5 rounded">
+                          <div className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/15 px-1.5 py-0.5 rounded self-start">
                             <Layers className="w-2.5 h-2.5" />
                             Va en la plancha
                           </div>
@@ -92,6 +132,7 @@ export function CartSheet({ onCheckout }: { onCheckout: () => void }) {
                         size="icon"
                         onClick={() => removeItem(item.id)}
                         className="text-white/40 hover:text-destructive hover:bg-destructive/10 shrink-0"
+                        aria-label={`Eliminar ${item.name} del carrito`}
                       >
                         <Trash2 className="w-5 h-5" />
                       </Button>

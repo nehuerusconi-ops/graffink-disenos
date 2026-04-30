@@ -11,6 +11,11 @@ interface CartContextType {
   items: CartItem[];
   addItem: (product: Product) => void;
   removeItem: (productId: string) => void;
+  /**
+   * Cambia la cantidad de un diseño en el carrito.
+   * Si `quantity <= 0`, elimina el ítem por completo.
+   */
+  updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
   totalItems: number;
   /** Suma de items por su precio individual (sin agrupar). */
@@ -92,6 +97,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems((prev) => prev.filter((item) => item.id !== productId));
   };
 
+  const updateQuantity = (productId: string, quantity: number) => {
+    if (quantity <= 0) {
+      removeItem(productId);
+      return;
+    }
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === productId ? { ...item, quantity } : item
+      )
+    );
+  };
+
   const clearCart = () => {
     setItems([]);
     setGroupAsPlancha(false);
@@ -112,6 +129,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         items,
         addItem,
         removeItem,
+        updateQuantity,
         clearCart,
         totalItems,
         itemsTotal,
