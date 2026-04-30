@@ -197,19 +197,7 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                   <MercadoPagoLogo className="h-10 w-10 object-contain" />
                 </div>
                 <div className="flex-1 text-left min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-white font-bold text-base leading-tight">Mercado Pago</span>
-                    <span className="text-[9px] uppercase tracking-wider bg-white/20 text-white px-1.5 py-0.5 rounded font-bold">Recomendado</span>
-                  </div>
-                  <div className="text-white/85 text-xs font-medium mt-1 leading-snug">
-                    Tarjeta crédito/débito, transferencia bancaria o saldo MP
-                  </div>
-                  <div className="flex items-center gap-1.5 mt-2">
-                    <span className="text-[9px] bg-white text-[#1A1F71] px-1.5 py-0.5 rounded font-black tracking-wide">VISA</span>
-                    <span className="text-[9px] bg-white text-[#EB001B] px-1.5 py-0.5 rounded font-black tracking-wide">MASTER</span>
-                    <span className="text-[9px] bg-white text-[#006FCF] px-1.5 py-0.5 rounded font-black tracking-wide">AMEX</span>
-                    <span className="text-[9px] bg-white/20 text-white px-1.5 py-0.5 rounded font-bold">+ más</span>
-                  </div>
+                  <span className="text-white font-bold text-base leading-tight">Mercado Pago</span>
                 </div>
                 <ExternalLink className="w-4 h-4 text-white/70 ml-1 shrink-0 group-hover:translate-x-0.5 transition-transform" />
               </button>
