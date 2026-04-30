@@ -330,7 +330,11 @@ export async function sendWebhookSignatureAlertEmail(opts: {
  * human-friendly Spanish description for the admin email.
  */
 function describePaypalReason(
-  reason: "order_mismatch" | "reference_mismatch" | "amount_mismatch",
+  reason:
+    | "order_mismatch"
+    | "reference_mismatch"
+    | "amount_mismatch"
+    | "missing_amount",
 ): string {
   switch (reason) {
     case "order_mismatch":
@@ -339,6 +343,8 @@ function describePaypalReason(
       return "El reference_id devuelto por PayPal al capturar no coincide con nuestro orderId.";
     case "amount_mismatch":
       return "El monto capturado en USD no coincide con el monto registrado al crear la orden.";
+    case "missing_amount":
+      return "No hay un monto en USD registrado para esta orden, así que no se puede verificar la captura (puede pasar si la orden quedó sin el monto persistido tras un reinicio del servidor o si fue creada antes de que existiera la columna).";
   }
 }
 
@@ -350,7 +356,11 @@ function describePaypalReason(
  * regardless of which channel triggered them.
  */
 export async function sendPaypalSecurityAlertEmail(opts: {
-  reason: "order_mismatch" | "reference_mismatch" | "amount_mismatch";
+  reason:
+    | "order_mismatch"
+    | "reference_mismatch"
+    | "amount_mismatch"
+    | "missing_amount";
   orderId: string;
   ppOrderId: string;
   ip: string;

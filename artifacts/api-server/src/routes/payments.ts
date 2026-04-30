@@ -120,12 +120,6 @@ interface DolarApiResponse {
 let _dolarApiCache: { rate: number; fetchedAt: number } | null = null;
 const DOLAR_API_CACHE_MS = 60 * 60 * 1000; // 1 hour
 
-// Short-lived map: PayPal order ID → USD amount used at order creation.
-// Prevents rate drift between create-order and capture-order calls.
-// Entries are removed after successful capture or after 2 hours.
-const _paypalOrderUsd = new Map<string, { usd: number; createdAt: number }>();
-const PAYPAL_ORDER_USD_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
-
 type RateSource = "env" | "dolarapi" | "default";
 
 async function getArsToUsdRate(): Promise<{ rate: number; source: RateSource; cachedAt: string | null }> {
@@ -653,6 +647,11 @@ router.post("/payments/paypal/create-order", async (req, res): Promise<void> => 
         paymentMethod: "paypal",
         status: "pending",
         arsToUsdRate: arsToUsd.toString(),
+        // Persist the agreed USD amount so the capture-order amount check
+        // survives a server restart between create and capture (previously
+        // this lived only in an in-memory map and a restart would silently
+        // disable the fraud check).
+        paypalUsdAmount: usdAmount,
       })
       .returning();
 
@@ -699,10 +698,6 @@ router.post("/payments/paypal/create-order", async (req, res): Promise<void> => 
       .set({ externalPaymentId: ppOrder.id })
       .where(eq(ordersTable.id, order.id));
 
-    // Remember the USD amount used for this order so capture validation uses
-    // the same rate even if the live rate changes before capture.
-    _paypalOrderUsd.set(ppOrder.id, { usd: parseFloat(usdAmount), createdAt: Date.now() });
-
     res.json({ ppOrderId: ppOrder.id, orderId: order.id });
   } catch (err) {
     req.log.error({ err }, "Failed to create PayPal order");
@@ -722,8 +717,16 @@ router.post("/payments/paypal/create-order", async (req, res): Promise<void> => 
 //   - reference_mismatch: PayPal capture's reference_id doesn't match our orderId.
 //   - amount_mismatch:    captured USD amount doesn't match the amount we
 //                         registered with PayPal at order creation.
+//   - missing_amount:     no USD amount was persisted for this order at all
+//                         (legacy order created before paypalUsdAmount existed,
+//                         or DB row tampered with) — we refuse to mark paid
+//                         without an authoritative reference amount.
 function recordPaypalSecurityEvent(
-  reason: "order_mismatch" | "reference_mismatch" | "amount_mismatch",
+  reason:
+    | "order_mismatch"
+    | "reference_mismatch"
+    | "amount_mismatch"
+    | "missing_amount",
   ip: string,
   detail: string | null,
   orderId: string,
@@ -837,34 +840,55 @@ router.post("/payments/paypal/capture-order", async (req, res): Promise<void> =>
       return;
     }
 
-    // Verify captured amount against the USD amount set at order creation (fraud protection).
-    // We use the stored amount from _paypalOrderUsd rather than recomputing with the current
-    // rate to avoid false positives when the exchange rate changes between create and capture.
+    // Verify captured amount against the USD amount set at order creation
+    // (fraud protection). The reference amount is read from the order row
+    // we already loaded above (`dbOrder.paypalUsdAmount`), which was
+    // persisted at create-order time. This DB-backed check survives a
+    // server restart between create-order and capture-order — the previous
+    // implementation kept the amount in an in-memory map and silently
+    // skipped the check ("fail open") when that map was empty, which an
+    // attacker could exploit by waiting for / triggering a restart.
     const capturedUsd = parseFloat(capturedUnit?.payments?.captures?.[0]?.amount?.value ?? "0");
-    const storedEntry = _paypalOrderUsd.get(ppOrderId);
-    // Purge stale entries from the map while we're here
-    const now = Date.now();
-    for (const [key, val] of _paypalOrderUsd.entries()) {
-      if (now - val.createdAt > PAYPAL_ORDER_USD_TTL_MS) _paypalOrderUsd.delete(key);
+    const storedUsdRaw = (dbOrder as { paypalUsdAmount?: string | number | null })
+      .paypalUsdAmount;
+    const expectedUsd =
+      storedUsdRaw === null || storedUsdRaw === undefined || storedUsdRaw === ""
+        ? null
+        : Number(storedUsdRaw);
+
+    if (expectedUsd === null || !Number.isFinite(expectedUsd) || expectedUsd <= 0) {
+      // No reference amount on file → we cannot verify and refuse to mark
+      // paid. This catches both legacy orders created before the column
+      // existed and any future code path that forgets to persist it.
+      req.log.error(
+        { orderId, ppOrderId, storedUsdRaw },
+        "PayPal capture without persisted USD amount — NOT marking paid",
+      );
+      recordPaypalSecurityEvent(
+        "missing_amount",
+        ip,
+        `orderId=${orderId} ppOrderId=${ppOrderId} capturedUsd=${capturedUsd} storedUsd=${String(storedUsdRaw ?? "null")}`,
+        orderId,
+        ppOrderId,
+      );
+      res.status(400).json({
+        error: "No se pudo verificar el monto capturado contra esta orden",
+      });
+      return;
     }
-    if (storedEntry) {
-      const expectedUsd = storedEntry.usd;
-      // Allow 1 USD tolerance for rounding differences
-      if (capturedUsd > 0 && Math.abs(capturedUsd - expectedUsd) > 1) {
-        req.log.error({ orderId, capturedUsd, expectedUsd }, "PayPal amount mismatch — NOT marking paid");
-        recordPaypalSecurityEvent(
-          "amount_mismatch",
-          ip,
-          `orderId=${orderId} capturedUsd=${capturedUsd} expectedUsd=${expectedUsd}`,
-          orderId,
-          ppOrderId,
-        );
-        res.status(400).json({ error: "El monto capturado no coincide con el total de la orden" });
-        return;
-      }
-      _paypalOrderUsd.delete(ppOrderId);
-    } else {
-      req.log.warn({ orderId, ppOrderId }, "PayPal USD amount not in memory (server restart?), skipping amount check");
+
+    // Allow 1 USD tolerance for rounding differences
+    if (capturedUsd > 0 && Math.abs(capturedUsd - expectedUsd) > 1) {
+      req.log.error({ orderId, capturedUsd, expectedUsd }, "PayPal amount mismatch — NOT marking paid");
+      recordPaypalSecurityEvent(
+        "amount_mismatch",
+        ip,
+        `orderId=${orderId} capturedUsd=${capturedUsd} expectedUsd=${expectedUsd}`,
+        orderId,
+        ppOrderId,
+      );
+      res.status(400).json({ error: "El monto capturado no coincide con el total de la orden" });
+      return;
     }
 
     const [updated] = await db

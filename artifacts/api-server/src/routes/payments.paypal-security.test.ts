@@ -3,15 +3,15 @@
  *
  *   POST /api/payments/paypal/capture-order
  *
- * The capture handler has THREE distinct rejection paths that each persist
+ * The capture handler has FOUR distinct rejection paths that each persist
  * a row into `webhook_security_events` (source = 'paypal') so the admin can
  * spot suspicious capture attempts. This test locks each one down so an
  * accidental refactor (e.g. deleting a `recordPaypalSecurityEvent(...)` call,
  * changing the reason string, or returning 200 by mistake) fails loudly
  * instead of silently breaking our fraud-detection audit trail.
  *
- * Asserted contract for each of `order_mismatch`, `reference_mismatch` and
- * `amount_mismatch`:
+ * Asserted contract for each of `order_mismatch`, `reference_mismatch`,
+ * `amount_mismatch` and `missing_amount`:
  *   1. The HTTP response rejects the capture (status 400).
  *   2. The order is NOT marked as paid (no `db.update` with `status: "paid"`).
  *   3. Exactly ONE row is inserted into `webhook_security_events` with
@@ -367,40 +367,18 @@ describe("PayPal capture-order — fraud attempts are logged for the admin", () 
     ).toBeUndefined();
   });
 
-  it("amount_mismatch: captured USD differs from the amount registered at create-order → 400, no paid update, one paypal event", async () => {
-    // Step A — prime the in-memory _paypalOrderUsd map by going through
-    // create-order. The map is module-private to payments.ts, so the only
-    // supported way to populate it is via the real create-order route.
-    // The product priced at 5000 ARS / 1000 rate = 5.00 USD baseline.
+  it("amount_mismatch: captured USD differs from the amount persisted at create-order → 400, no paid update, one paypal event", async () => {
+    // The reference USD amount now lives in the `paypal_usd_amount` column
+    // on the order row (it used to live in an in-memory map). We feed the
+    // mocked DB a row where the persisted reference is 5.00 USD and have
+    // PayPal report a captured amount of 100 USD — well outside the 1 USD
+    // rounding tolerance.
     const PP_ORDER_ID = "PP-AMOUNT-TEST";
-    mockPaypalFetch([
-      { match: /\/v1\/oauth2\/token/, respond: () => ({ access_token: "tk" }) },
-      // The trailing $ ensures we match the create-order endpoint and not
-      // /v2/checkout/orders/<id>/capture.
-      { match: /\/v2\/checkout\/orders$/, respond: () => ({ id: PP_ORDER_ID }) },
-    ]);
-
-    const created = await request(app)
-      .post("/api/payments/paypal/create-order")
-      .send({
-        customerName: "Tester",
-        customerEmail: "tester@example.com",
-        items: [{ productId: "PROD-1", quantity: 1 }],
-      });
-    expect(created.status).toBe(200);
-    expect(created.body).toMatchObject({ ppOrderId: PP_ORDER_ID });
-
-    // Reset side effects from the create-order setup so the assertions
-    // below only reflect the capture-order call.
-    orderUpdateSetCalls.length = 0;
-
-    // Step B — capture with an amount far away from the 5.00 USD baseline
-    // (the handler tolerates a 1 USD rounding diff, so 100 USD is clearly
-    // outside that band).
     nextOrderRow = {
       id: "ORDER-CREATED",
       externalPaymentId: PP_ORDER_ID,
       status: "pending",
+      paypalUsdAmount: "5.00",
     };
     mockPaypalFetch([
       { match: /\/v1\/oauth2\/token/, respond: () => ({ access_token: "tk" }) },
@@ -434,6 +412,61 @@ describe("PayPal capture-order — fraud attempts are logged for the admin", () 
     const event = webhookSecurityEvents[0]!;
     expect(event.source).toBe("paypal");
     expect(event.reason).toBe("amount_mismatch");
+
+    expect(
+      orderUpdateSetCalls.find((c) => c.values["status"] === "paid"),
+    ).toBeUndefined();
+  });
+
+  // Regression test for the "fail open after restart" bug: previously, the
+  // reference USD amount was kept only in an in-memory map. If the API
+  // server restarted between create-order and capture-order, the map was
+  // empty, the amount check was silently skipped, and the order got marked
+  // paid no matter what value PayPal reported. The fix persists the
+  // reference amount on the order row, so a missing value is now itself a
+  // hard rejection (and a security event) rather than a silent bypass.
+  it("missing_amount: order row has no persisted USD amount → 400, no paid update, one paypal event", async () => {
+    const PP_ORDER_ID = "PP-MISSING-AMOUNT";
+    nextOrderRow = {
+      id: "ORDER-LEGACY",
+      externalPaymentId: PP_ORDER_ID,
+      status: "pending",
+      // Simulates a legacy order created before the column existed (or any
+      // future row that somehow lost its reference amount).
+      paypalUsdAmount: null,
+    };
+    mockPaypalFetch([
+      { match: /\/v1\/oauth2\/token/, respond: () => ({ access_token: "tk" }) },
+      {
+        match: new RegExp(`/v2/checkout/orders/${PP_ORDER_ID}/capture`),
+        respond: () => ({
+          status: "COMPLETED",
+          purchase_units: [
+            {
+              reference_id: "ORDER-LEGACY",
+              payments: {
+                captures: [
+                  { amount: { value: "5.00", currency_code: "USD" } },
+                ],
+              },
+            },
+          ],
+        }),
+      },
+    ]);
+
+    const res = await request(app)
+      .post("/api/payments/paypal/capture-order")
+      .send({ ppOrderId: PP_ORDER_ID, orderId: "ORDER-LEGACY" });
+
+    expect(res.status).toBe(400);
+
+    await flushMicrotasks();
+
+    expect(webhookSecurityEvents).toHaveLength(1);
+    const event = webhookSecurityEvents[0]!;
+    expect(event.source).toBe("paypal");
+    expect(event.reason).toBe("missing_amount");
 
     expect(
       orderUpdateSetCalls.find((c) => c.values["status"] === "paid"),

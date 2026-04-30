@@ -34,6 +34,12 @@ export const ordersTable = pgTable("orders", {
     enum: ["webhook", "manual", "paypal-capture"],
   }),
   arsToUsdRate: numeric("ars_to_usd_rate", { precision: 12, scale: 4 }),
+  // USD amount agreed at PayPal create-order time. Persisted (instead of
+  // kept only in an in-memory map) so the anti-fraud amount check at
+  // capture-order time still works after a server restart between the
+  // create-order and capture-order calls. Nullable because non-PayPal
+  // orders never set it.
+  paypalUsdAmount: numeric("paypal_usd_amount", { precision: 12, scale: 2 }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
