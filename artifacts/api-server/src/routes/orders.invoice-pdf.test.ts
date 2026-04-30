@@ -165,4 +165,32 @@ describe("GET /api/orders/:id/invoice-pdf", () => {
     expect(body.length).toBeGreaterThan(100);
     expect(body.subarray(0, 5).toString("ascii")).toBe("%PDF-");
   });
+
+  it("renders a PayPal order with the persisted ARS→USD rate without errors", async () => {
+    // Regression guard: PayPal orders persist arsToUsdRate, and the PDF
+    // includes a "Tipo de cambio aplicado" audit line. This test ensures
+    // the additional rendering path stays green and produces a valid PDF.
+    currentAuth = { userId: "user_admin" };
+    currentRow = {
+      ...paidOrderRow(),
+      paymentMethod: "paypal",
+      confirmationSource: "paypal-capture",
+      arsToUsdRate: "1234.5678",
+    };
+
+    const res = await request(app)
+      .get(`/api/orders/${VALID_UUID}/invoice-pdf`)
+      .buffer(true)
+      .parse((response, callback) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk: Buffer) => chunks.push(chunk));
+        response.on("end", () => callback(null, Buffer.concat(chunks)));
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toBe("application/pdf");
+    const body = res.body as Buffer;
+    expect(body.length).toBeGreaterThan(100);
+    expect(body.subarray(0, 5).toString("ascii")).toBe("%PDF-");
+  });
 });

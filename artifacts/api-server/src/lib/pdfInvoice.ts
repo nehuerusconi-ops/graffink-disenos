@@ -24,6 +24,28 @@ function fmtDate(d: Date): string {
   return `${dd}/${mm}/${yyyy}`;
 }
 
+/**
+ * Format the PayPal "Tipo de cambio aplicado" audit line shown on the
+ * receipt (PDF and HTML versions). Returns `null` when the order is not
+ * a PayPal order, when the rate is missing, or when it does not parse to
+ * a positive finite number — callers must omit the line in that case.
+ *
+ * Exported so the printable HTML in the admin panel and the PDF stay in
+ * lockstep, and so tests can assert the exact wording without parsing PDFs.
+ */
+export function formatPaypalRateLine(
+  paymentMethod: string,
+  arsToUsdRate: string | null | undefined,
+  totalArs: number,
+): string | null {
+  if (paymentMethod !== "paypal") return null;
+  if (arsToUsdRate == null || arsToUsdRate === "") return null;
+  const rate = Number(arsToUsdRate);
+  if (!Number.isFinite(rate) || rate <= 0) return null;
+  const usdEquivalent = totalArs / rate;
+  return `Tipo de cambio aplicado: 1 USD = $${fmtMoney(rate)} ARS (≈ USD ${fmtMoney(usdEquivalent)})`;
+}
+
 function methodLabel(method: string): string {
   switch (method) {
     case "mercadopago":
@@ -455,6 +477,25 @@ export function buildInvoicePdf(order: Order): Promise<Buffer> {
           width: totalsBoxW,
           align: "right",
         });
+
+      // ---- PayPal exchange rate line (audit trail) ----
+      // Only shown for PayPal orders where the ARS→USD rate was persisted at
+      // creation time. Older orders without the rate fall through silently.
+      const rateLine = formatPaypalRateLine(
+        order.paymentMethod,
+        order.arsToUsdRate,
+        order.total,
+      );
+      if (rateLine !== null) {
+        doc
+          .font("Helvetica")
+          .fontSize(8)
+          .fillColor("#000")
+          .text(rateLine, PAGE_MARGIN, totalsTop + totalsBoxH + 18, {
+            width: CONTENT_W,
+            align: "right",
+          });
+      }
 
       // ---- Footer disclaimer ----
       const discTop = totalsTop + totalsBoxH + 40;

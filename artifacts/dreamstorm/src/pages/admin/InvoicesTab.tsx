@@ -85,6 +85,22 @@ function printInvoice(order: Order) {
     )
     .join("");
 
+  // Exchange rate audit line: only rendered for PayPal orders that have a
+  // persisted arsToUsdRate (older orders silently omit it).
+  let exchangeRateBlock = "";
+  if (order.paymentMethod === "paypal" && order.arsToUsdRate) {
+    const rateNum = parseFloat(order.arsToUsdRate);
+    if (Number.isFinite(rateNum) && rateNum > 0) {
+      const usdEquivalent = order.total / rateNum;
+      exchangeRateBlock = `
+        <div class="line">
+          <span>Tipo de cambio aplicado</span>
+          <span>1 USD = $${rateNum.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ARS (≈ USD ${usdEquivalent.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span>
+        </div>
+      `;
+    }
+  }
+
   win.document.write(`
     <!doctype html>
     <html lang="es">
@@ -164,6 +180,7 @@ function printInvoice(order: Order) {
         <div class="totals">
           <div class="line"><span>Subtotal</span><span>$${order.total.toLocaleString("es-AR")}</span></div>
           <div class="line grand"><span>TOTAL</span><span>$${order.total.toLocaleString("es-AR")} ARS</span></div>
+          ${exchangeRateBlock}
         </div>
         <div class="footer">
           Gracias por tu compra · GraffInk Diseños · Archivos digitales DTF de alta calidad
