@@ -4,7 +4,11 @@ import { MercadoPagoConfig, Preference, Payment } from "mercadopago";
 import { db, ordersTable, productsTable, webhookSecurityEventsTable } from "@workspace/db";
 import type { OrderItem } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
-import { sendOrderConfirmationEmail, sendWebhookSignatureAlertEmail } from "../lib/email";
+import {
+  sendOrderConfirmationEmail,
+  sendPaypalSecurityAlertEmail,
+  sendWebhookSignatureAlertEmail,
+} from "../lib/email";
 import { logger } from "../lib/logger";
 import { requireAdmin } from "../middlewares/requireAdmin";
 import { isValidDniOrCuit } from "../lib/dniCuit";
@@ -713,6 +717,8 @@ function recordPaypalSecurityEvent(
   reason: "order_mismatch" | "reference_mismatch" | "amount_mismatch",
   ip: string,
   detail: string | null,
+  orderId: string,
+  ppOrderId: string,
 ): void {
   void db
     .insert(webhookSecurityEventsTable)
@@ -727,6 +733,17 @@ function recordPaypalSecurityEvent(
     .catch((err) => {
       logger.error({ err }, "Failed to persist PayPal webhook security event");
     });
+
+  // Fire-and-forget admin alert (rate-limited internally, shares the per-hour
+  // bucket with the MP invalid-signature alert so the admin inbox is bounded
+  // even if both channels are probed at once).
+  void sendPaypalSecurityAlertEmail({
+    reason,
+    orderId,
+    ppOrderId,
+    ip,
+    detail,
+  });
 }
 
 router.post("/payments/paypal/capture-order", async (req, res): Promise<void> => {
@@ -759,6 +776,8 @@ router.post("/payments/paypal/capture-order", async (req, res): Promise<void> =>
         "order_mismatch",
         ip,
         `orderId=${orderId} ppOrderId=${ppOrderId} stored=${dbOrder.externalPaymentId ?? "null"}`,
+        orderId,
+        ppOrderId,
       );
       res.status(400).json({ error: "El pedido de PayPal no corresponde a esta orden" });
       return;
@@ -802,6 +821,8 @@ router.post("/payments/paypal/capture-order", async (req, res): Promise<void> =>
         "reference_mismatch",
         ip,
         `orderId=${orderId} capturedRef=${capturedRef} ppOrderId=${ppOrderId}`,
+        orderId,
+        ppOrderId,
       );
       res.status(400).json({ error: "El pago capturado no corresponde a esta orden" });
       return;
@@ -826,6 +847,8 @@ router.post("/payments/paypal/capture-order", async (req, res): Promise<void> =>
           "amount_mismatch",
           ip,
           `orderId=${orderId} capturedUsd=${capturedUsd} expectedUsd=${expectedUsd}`,
+          orderId,
+          ppOrderId,
         );
         res.status(400).json({ error: "El monto capturado no coincide con el total de la orden" });
         return;

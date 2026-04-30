@@ -160,6 +160,7 @@ vi.mock("mercadopago", () => ({
 vi.mock("../lib/email", () => ({
   sendOrderConfirmationEmail: vi.fn().mockResolvedValue(undefined),
   sendWebhookSignatureAlertEmail: vi.fn().mockResolvedValue(undefined),
+  sendPaypalSecurityAlertEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
 // ─── PayPal HTTP mock — captures /v2/checkout/orders payload ──────────────

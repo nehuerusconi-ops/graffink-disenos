@@ -114,7 +114,37 @@ function resolveMaxAlertsPerHour(): number {
 }
 
 const MAX_ALERTS_PER_HOUR = resolveMaxAlertsPerHour();
+// Single shared bucket: BOTH the MP invalid-signature alert and the PayPal
+// security alert consume from the same per-hour quota. Sharing it caps the
+// total volume of "security" emails the admin can receive in any given hour
+// regardless of how many channels an attacker probes.
 const alertTimestamps: number[] = [];
+
+/**
+ * Shared rate-limit gate for admin security alerts. Prunes timestamps older
+ * than 1h and either records "now" and returns true (caller should send) or
+ * returns false (caller should skip). Extracted so MP and PayPal alerts share
+ * the same bucket without duplicating the prune/skip logic.
+ */
+function tryConsumeAlertSlot(logCtx: Record<string, unknown>, source: string): boolean {
+  const now = Date.now();
+  const oneHourAgo = now - 60 * 60 * 1000;
+
+  while (alertTimestamps.length > 0 && alertTimestamps[0]! < oneHourAgo) {
+    alertTimestamps.shift();
+  }
+
+  if (alertTimestamps.length >= MAX_ALERTS_PER_HOUR) {
+    logger.warn(
+      logCtx,
+      `${source} alert rate limit reached — skipping admin email`,
+    );
+    return false;
+  }
+
+  alertTimestamps.push(now);
+  return true;
+}
 
 export async function sendWebhookSignatureAlertEmail(opts: {
   ip: string;
@@ -124,23 +154,14 @@ export async function sendWebhookSignatureAlertEmail(opts: {
   const transporter = createTransporter();
   if (!transporter || !GMAIL_USER) return;
 
-  const now = Date.now();
-  const oneHourAgo = now - 60 * 60 * 1000;
-
-  // Prune timestamps older than 1 hour
-  while (alertTimestamps.length > 0 && alertTimestamps[0]! < oneHourAgo) {
-    alertTimestamps.shift();
-  }
-
-  if (alertTimestamps.length >= MAX_ALERTS_PER_HOUR) {
-    logger.warn(
+  if (
+    !tryConsumeAlertSlot(
       { ip: opts.ip, xRequestId: opts.xRequestId },
-      "MP webhook alert rate limit reached — skipping admin email",
-    );
+      "MP webhook",
+    )
+  ) {
     return;
   }
-
-  alertTimestamps.push(now);
 
   const html = `
 <!DOCTYPE html>
@@ -215,6 +236,156 @@ export async function sendWebhookSignatureAlertEmail(opts: {
     );
   } catch (err) {
     logger.error({ err }, "Failed to send webhook signature alert email");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PayPal capture security alert — same per-hour quota as the MP alert
+// ---------------------------------------------------------------------------
+
+/**
+ * Map the machine-readable reason emitted by the PayPal capture handler to a
+ * human-friendly Spanish description for the admin email.
+ */
+function describePaypalReason(
+  reason: "order_mismatch" | "reference_mismatch" | "amount_mismatch",
+): string {
+  switch (reason) {
+    case "order_mismatch":
+      return "El ppOrderId enviado no coincide con el externalPaymentId guardado para esta orden.";
+    case "reference_mismatch":
+      return "El reference_id devuelto por PayPal al capturar no coincide con nuestro orderId.";
+    case "amount_mismatch":
+      return "El monto capturado en USD no coincide con el monto registrado al crear la orden.";
+  }
+}
+
+/**
+ * Send an admin alert when `/payments/paypal/capture-order` rejects a
+ * capture for one of the documented security reasons. Shares the per-hour
+ * bucket with `sendWebhookSignatureAlertEmail` so the admin inbox can never
+ * receive more than `MAX_ALERTS_PER_HOUR` security alerts in any hour
+ * regardless of which channel triggered them.
+ */
+export async function sendPaypalSecurityAlertEmail(opts: {
+  reason: "order_mismatch" | "reference_mismatch" | "amount_mismatch";
+  orderId: string;
+  ppOrderId: string;
+  ip: string;
+  detail: string | null;
+}): Promise<void> {
+  const transporter = createTransporter();
+  if (!transporter || !GMAIL_USER) return;
+
+  if (
+    !tryConsumeAlertSlot(
+      {
+        reason: opts.reason,
+        orderId: opts.orderId,
+        ppOrderId: opts.ppOrderId,
+        ip: opts.ip,
+      },
+      "PayPal capture",
+    )
+  ) {
+    return;
+  }
+
+  const reasonLabel = opts.reason;
+  const reasonDescription = describePaypalReason(opts.reason);
+
+  const html = `
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:0;background:#0f0f0f;font-family:Inter,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f0f;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+
+        <tr>
+          <td style="background:#1a0000;border-radius:12px 12px 0 0;padding:32px 40px;border-bottom:2px solid #ef4444;">
+            <p style="color:#ef4444;font-size:13px;font-weight:700;letter-spacing:1px;margin:0 0 8px 0;">⚠ ALERTA DE SEGURIDAD — PAYPAL</p>
+            <h1 style="color:#fff;font-size:20px;font-weight:900;margin:0;">Captura de PayPal rechazada por validación</h1>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="background:#111;padding:32px 40px;">
+            <p style="color:#aaa;font-size:15px;margin:0 0 24px 0;">
+              El endpoint <code style="color:#fff;">/api/payments/paypal/capture-order</code> rechazó un intento de capturar
+              un pago de PayPal por un motivo de seguridad. Esto puede indicar un intento de forzar la captura
+              con un <code style="color:#fff;">ppOrderId</code> ajeno o con un monto distinto al registrado.
+              Revisá los logs del servidor para más contexto.
+            </p>
+
+            <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #2a0000;border-radius:8px;overflow:hidden;margin-bottom:24px;">
+              <tr style="background:#1a0000;">
+                <th colspan="2" style="padding:10px 16px;text-align:left;color:#ef4444;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;">Detalles del intento</th>
+              </tr>
+              <tr>
+                <td style="padding:10px 16px;border-bottom:1px solid #1a1a1a;color:#666;font-size:13px;width:40%;">Motivo</td>
+                <td style="padding:10px 16px;border-bottom:1px solid #1a1a1a;color:#fff;font-size:13px;font-family:monospace;">${reasonLabel}</td>
+              </tr>
+              <tr>
+                <td style="padding:10px 16px;border-bottom:1px solid #1a1a1a;color:#666;font-size:13px;">Descripción</td>
+                <td style="padding:10px 16px;border-bottom:1px solid #1a1a1a;color:#fff;font-size:13px;">${reasonDescription}</td>
+              </tr>
+              <tr>
+                <td style="padding:10px 16px;border-bottom:1px solid #1a1a1a;color:#666;font-size:13px;">orderId</td>
+                <td style="padding:10px 16px;border-bottom:1px solid #1a1a1a;color:#fff;font-size:13px;font-family:monospace;">${opts.orderId}</td>
+              </tr>
+              <tr>
+                <td style="padding:10px 16px;border-bottom:1px solid #1a1a1a;color:#666;font-size:13px;">ppOrderId</td>
+                <td style="padding:10px 16px;border-bottom:1px solid #1a1a1a;color:#fff;font-size:13px;font-family:monospace;">${opts.ppOrderId}</td>
+              </tr>
+              <tr>
+                <td style="padding:10px 16px;border-bottom:1px solid #1a1a1a;color:#666;font-size:13px;">IP de origen</td>
+                <td style="padding:10px 16px;border-bottom:1px solid #1a1a1a;color:#fff;font-size:13px;font-family:monospace;">${opts.ip}</td>
+              </tr>
+              <tr>
+                <td style="padding:10px 16px;color:#666;font-size:13px;">Detalle</td>
+                <td style="padding:10px 16px;color:#fff;font-size:13px;font-family:monospace;">${opts.detail ?? "(sin detalle)"}</td>
+              </tr>
+            </table>
+
+            <p style="color:#555;font-size:12px;margin:0;">
+              Este aviso está limitado a ${MAX_ALERTS_PER_HOUR} alertas por hora (cuota compartida con las alertas de Mercado Pago) para evitar spam durante ataques masivos.
+            </p>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="background:#0a0a0a;border-radius:0 0 12px 12px;padding:20px 40px;border-top:1px solid #1a1a1a;text-align:center;">
+            <p style="color:#444;font-size:12px;margin:0;">GraffInk Diseños — Alerta automática del sistema</p>
+            <p style="color:#333;font-size:11px;margin:6px 0 0 0;">https://${DOMAIN}</p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  try {
+    await transporter.sendMail({
+      from: `"GraffInk Diseños Sistema" <${GMAIL_USER}>`,
+      to: GMAIL_USER,
+      subject: `🚨 GraffInk Diseños — Captura de PayPal rechazada (${reasonLabel}, IP: ${opts.ip})`,
+      html,
+    });
+    logger.info(
+      {
+        reason: opts.reason,
+        orderId: opts.orderId,
+        ppOrderId: opts.ppOrderId,
+        ip: opts.ip,
+      },
+      "PayPal security alert email sent to admin",
+    );
+  } catch (err) {
+    logger.error({ err }, "Failed to send PayPal security alert email");
   }
 }
 
