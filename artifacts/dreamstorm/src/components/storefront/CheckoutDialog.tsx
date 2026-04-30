@@ -67,7 +67,7 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
         throw new Error(err.error ?? "No se pudo crear la preferencia");
       }
       const data = (await resp.json()) as { init_point: string; sandbox_init_point: string };
-      const url = import.meta.env.PROD ? data.init_point : (data.sandbox_init_point ?? data.init_point);
+      const url = data.init_point ?? data.sandbox_init_point;
       onOpenChange(false);
       window.location.href = url;
     } catch (err) {
