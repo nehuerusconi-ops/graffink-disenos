@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useCart } from "./CartContext";
 import { CheckCircle2, Loader2, ExternalLink, ArrowLeft, Mail } from "lucide-react";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
-import { MercadoPagoLogoWhite, UalaBisLogo, PaypalLogoWhite } from "./PaymentLogos";
+import { MercadoPagoLogo, UalaBisLogo, PaypalLogoWhite } from "./PaymentLogos";
 import { toast } from "sonner";
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
