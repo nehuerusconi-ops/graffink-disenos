@@ -443,8 +443,7 @@ export const updateAppSettingsBodyPlanchaGroupingPriceMin = 0;
 export const UpdateAppSettingsBody = zod.object({
   planchaGroupingPrice: zod
     .number()
-    .min(updateAppSettingsBodyPlanchaGroupingPriceMin)
-    .optional(),
+    .min(updateAppSettingsBodyPlanchaGroupingPriceMin),
 });
 
 export const updateAppSettingsResponsePlanchaGroupingPriceMin = 0;

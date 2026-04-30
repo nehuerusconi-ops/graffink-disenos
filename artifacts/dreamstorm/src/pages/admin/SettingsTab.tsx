@@ -8,7 +8,9 @@ import { Label } from "@/components/ui/label";
 import {
   useGetAppSettings,
   useUpdateAppSettings,
+  getGetAppSettingsQueryKey,
 } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 interface RateInfo {
@@ -56,6 +58,7 @@ export function SettingsTab() {
   // ---------------------------------------------------------------------------
   // Precio de "Armar plancha" (agrupar carrito como una sola plancha)
   // ---------------------------------------------------------------------------
+  const queryClient = useQueryClient();
   const settingsQuery = useGetAppSettings();
   const updateSettingsMut = useUpdateAppSettings();
   const [planchaPriceInput, setPlanchaPriceInput] = useState<string>("");
@@ -76,6 +79,11 @@ export function SettingsTab() {
       await updateSettingsMut.mutateAsync({
         data: { planchaGroupingPrice: n },
       });
+      // Invalidate the cached /api/settings query so any other consumer in the
+      // SPA (notably CartProvider, which reads planchaGroupingPrice to compute
+      // the grouped-cart total in the storefront) immediately sees the new
+      // price without needing a page refresh.
+      await queryClient.invalidateQueries({ queryKey: getGetAppSettingsQueryKey() });
       toast.success("Precio de plancha actualizado");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al guardar");

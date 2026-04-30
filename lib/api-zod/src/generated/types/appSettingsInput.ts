@@ -8,5 +8,5 @@
 
 export interface AppSettingsInput {
   /** @minimum 0 */
-  planchaGroupingPrice?: number;
+  planchaGroupingPrice: number;
 }

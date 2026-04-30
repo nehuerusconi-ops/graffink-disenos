@@ -47,7 +47,7 @@ export interface AppSettings {
 
 export interface AppSettingsInput {
   /** @minimum 0 */
-  planchaGroupingPrice?: number;
+  planchaGroupingPrice: number;
 }
 
 export interface ProductSpec {
