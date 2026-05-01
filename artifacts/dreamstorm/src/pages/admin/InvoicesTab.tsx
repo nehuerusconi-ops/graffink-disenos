@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import { useListOrders } from "@workspace/api-client-react";
 import type { Order } from "@workspace/api-client-react";
@@ -31,6 +31,11 @@ import {
   downloadOrdersCsv,
   type PaymentMethodFilter,
 } from "./downloads";
+import {
+  loadPersistedDateRange,
+  persistDateRange,
+  type DateRange,
+} from "./invoicesDateRangeStorage";
 
 const PAYMENT_LABELS: Record<string, string> = {
   mercadopago: "Mercado Pago",
@@ -246,8 +251,6 @@ function describeDateRange(from: string, to: string): string {
   return "";
 }
 
-type DateRange = { from: string; to: string };
-
 // Quick preset ranges for the most common accounting periods. Computed lazily
 // (inside the component on every render) so they always reflect "now" — e.g.
 // "Hoy" updates if the admin keeps the tab open across midnight. Weeks start
@@ -323,8 +326,24 @@ export function InvoicesTab() {
   // leave either one blank to mean "open ended". The same range is also
   // applied client-side to the table so what the admin sees matches what
   // the CSV will contain.
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  //
+  // The initial value is hydrated from `localStorage` so the admin doesn't
+  // have to re-pick a preset every time they open the tab. We read storage
+  // exactly once (lazy initializer) so changes from other tabs while this
+  // one is open don't yank the inputs out from under the admin.
+  const [fromDate, setFromDate] = useState<string>(
+    () => loadPersistedDateRange().from,
+  );
+  const [toDate, setToDate] = useState<string>(
+    () => loadPersistedDateRange().to,
+  );
+  // Mirror every change back to storage. An empty range is a meaningful
+  // signal — if the admin clicks "Limpiar fechas" we want them to reopen
+  // the tab on empty, not on a stale preset — so we persist `{from:"",
+  // to:""}` rather than removing the key.
+  useEffect(() => {
+    persistDateRange({ from: fromDate, to: toDate });
+  }, [fromDate, toDate]);
   const rangeInvalid = Boolean(fromDate && toDate && fromDate > toDate);
   const [selected, setSelected] = useState<Order | null>(null);
 
