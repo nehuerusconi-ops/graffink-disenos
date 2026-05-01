@@ -228,6 +228,68 @@ async function tryConsumeAlertSlot(
   }
 }
 
+/**
+ * One-shot prune of `webhook_alert_log` rows older than 1 hour. Returns the
+ * number of rows deleted (purely for logging; callers don't use it). Used
+ * BOTH by `tryConsumeAlertSlot` (which prunes inline before each rate-limit
+ * decision) AND by the periodic cleanup job started from `index.ts`. The
+ * inline prune already keeps the table small in any hour where alerts are
+ * actually firing; the periodic job exists so that during long quiet stretches
+ * (no signature failures for days) the few stale rows left behind by the last
+ * burst still get evicted instead of sitting around indefinitely.
+ *
+ * Failures are logged and swallowed: a transient DB hiccup must NOT crash the
+ * server and must NOT take down the periodic timer either.
+ */
+export async function pruneOldWebhookAlertLogs(): Promise<number> {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  try {
+    const deleted = await db
+      .delete(webhookAlertLogTable)
+      .where(lt(webhookAlertLogTable.sentAt, oneHourAgo))
+      .returning({ id: webhookAlertLogTable.id });
+    if (deleted.length > 0) {
+      logger.info(
+        { deleted: deleted.length },
+        "Pruned old webhook_alert_log rows",
+      );
+    }
+    return deleted.length;
+  } catch (err) {
+    logger.error({ err }, "Failed to prune webhook_alert_log");
+    return 0;
+  }
+}
+
+/**
+ * How often the periodic cleanup job re-runs `pruneOldWebhookAlertLogs`.
+ * Daily is plenty: the table is bounded by `MAX_ALERTS_PER_HOUR` in steady
+ * state and the inline prune handles the active case. The job exists purely
+ * as a belt-and-braces sweep for quiet periods, so a longer cadence just
+ * means stale rows linger a bit longer (still bounded by the same cap).
+ */
+const ALERT_LEDGER_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Schedule a periodic background sweep of `webhook_alert_log`. Runs once
+ * immediately on startup so a server that boots after a long quiet stretch
+ * doesn't have to wait a full day for the first cleanup, then re-runs every
+ * `ALERT_LEDGER_CLEANUP_INTERVAL_MS`. The returned `stop()` is provided so
+ * tests (and future graceful shutdown logic) can cancel the timer; it is
+ * otherwise unused. The interval handle is `unref()`'d so it never blocks
+ * Node from exiting.
+ */
+export function startWebhookAlertLogCleanupJob(): { stop: () => void } {
+  void pruneOldWebhookAlertLogs();
+  const handle = setInterval(() => {
+    void pruneOldWebhookAlertLogs();
+  }, ALERT_LEDGER_CLEANUP_INTERVAL_MS);
+  handle.unref();
+  return {
+    stop: () => clearInterval(handle),
+  };
+}
+
 export async function sendWebhookSignatureAlertEmail(opts: {
   ip: string;
   xRequestId: string | undefined;

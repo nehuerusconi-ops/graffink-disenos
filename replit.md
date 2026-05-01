@@ -56,7 +56,7 @@ The project is organized as a pnpm workspace monorepo.
 - **Security & Validation**:
     - DNI/CUIT validation (`isValidDniOrCuit`) implemented on both API and storefront.
     - Webhook security event logging and cleanup mechanism with configurable retention.
-    - Rate limiting for admin alerts on invalid webhook signatures.
+    - Rate limiting for admin alerts on invalid webhook signatures. The per-hour quota is enforced against the `webhook_alert_log` table; rows are pruned inline by `tryConsumeAlertSlot` on every alert attempt and additionally swept by a daily background job (`startWebhookAlertLogCleanupJob`, started from `artifacts/api-server/src/index.ts`) that runs once on server startup and then every 24h to evict stale rows during quiet stretches.
 - **UI/UX**:
     - Storefront design in Argentine Spanish (voseo).
     - Consistent header branding ("GraffInk Diseños").
