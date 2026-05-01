@@ -1,5 +1,5 @@
 import { useState, FormEvent } from "react";
-import { Download, Mail, ArrowLeft, ShoppingBag, Loader2, PackageOpen } from "lucide-react";
+import { Download, Mail, ArrowLeft, ShoppingBag, Loader2, PackageOpen, Clock, Ruler } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Header } from "@/components/storefront/Header";
@@ -16,6 +16,10 @@ interface OrderItem {
   quantity: number;
   imagePath: string;
   filePath?: string | null;
+  /** Medida elegida en el momento de comprar — "Original" si no aplica. */
+  selectedSize?: string;
+  /** True si la medida es personalizada (ej. "Personalizado 12x18 cm"). */
+  isCustomSize?: boolean;
 }
 
 interface PurchaseOrder {
@@ -25,6 +29,12 @@ interface PurchaseOrder {
   total: number;
   paymentMethod: string;
   createdAt: string;
+  /**
+   * True cuando el pedido necesita preparación manual (medida no-original o
+   * armar plancha). En ese caso ocultamos el botón "Descargar" y mostramos
+   * un badge ámbar "En preparación · 24hs hábiles".
+   */
+  requiresManualPrep?: boolean;
 }
 
 function formatMethod(method: string): string {
@@ -184,40 +194,62 @@ export default function MisCompras() {
                 </div>
 
                 <div className="divide-y divide-white/[0.06]">
-                  {order.items.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between px-5 py-4 gap-4"
-                    >
-                      <div className="flex items-center gap-4 min-w-0">
-                        <img
-                          src={toStorageUrl(item.imagePath)}
-                          alt={item.name}
-                          className="w-12 h-12 rounded-md object-cover bg-white/5 shrink-0"
-                          onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).style.display = "none";
-                          }}
-                        />
-                        <div className="min-w-0">
-                          <p className="text-white text-sm font-semibold truncate">
-                            {item.name}
-                          </p>
-                          <p className="text-white/35 text-xs mt-0.5">
-                            Cant. {item.quantity} · ${item.price.toLocaleString("es-AR")} ARS c/u
-                          </p>
-                        </div>
-                      </div>
-
-                      <a
-                        href={downloadUrl(item)}
-                        download
-                        className="flex items-center gap-2 bg-primary/15 hover:bg-primary/25 text-primary border border-primary/20 hover:border-primary/40 rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors shrink-0"
+                  {order.items.map((item, idx) => {
+                    const hasNonOriginalSize =
+                      typeof item.selectedSize === "string" &&
+                      item.selectedSize.length > 0 &&
+                      item.selectedSize !== "Original";
+                    return (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between px-5 py-4 gap-4"
                       >
-                        <Download className="w-3.5 h-3.5" />
-                        Descargar
-                      </a>
-                    </div>
-                  ))}
+                        <div className="flex items-center gap-4 min-w-0">
+                          <img
+                            src={toStorageUrl(item.imagePath)}
+                            alt={item.name}
+                            className="w-12 h-12 rounded-md object-cover bg-white/5 shrink-0"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).style.display = "none";
+                            }}
+                          />
+                          <div className="min-w-0">
+                            <p className="text-white text-sm font-semibold truncate">
+                              {item.name}
+                            </p>
+                            <p className="text-white/35 text-xs mt-0.5">
+                              Cant. {item.quantity} · ${item.price.toLocaleString("es-AR")} ARS c/u
+                            </p>
+                            {hasNonOriginalSize && (
+                              <span className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-200 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded">
+                                <Ruler className="w-2.5 h-2.5" />
+                                {item.selectedSize}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {order.requiresManualPrep ? (
+                          <span
+                            className="flex items-center gap-2 bg-amber-500/15 text-amber-200 border border-amber-500/30 rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-wider shrink-0"
+                            data-testid={`badge-en-preparacion-${order.invoiceNumber}-${idx}`}
+                          >
+                            <Clock className="w-3.5 h-3.5" />
+                            En preparación · 24hs
+                          </span>
+                        ) : (
+                          <a
+                            href={downloadUrl(item)}
+                            download
+                            className="flex items-center gap-2 bg-primary/15 hover:bg-primary/25 text-primary border border-primary/20 hover:border-primary/40 rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors shrink-0"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            Descargar
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div className="px-5 py-3 border-t border-white/[0.06] flex justify-end">

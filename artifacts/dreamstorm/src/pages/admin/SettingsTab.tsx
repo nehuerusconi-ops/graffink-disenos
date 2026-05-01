@@ -12,6 +12,7 @@ import {
   Plus,
   Trash2,
   Lock,
+  Ruler,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -89,6 +90,55 @@ export function SettingsTab() {
       setPlanchaPriceInput(String(settingsQuery.data.planchaGroupingPrice));
     }
   }, [settingsQuery.data, planchaPriceInput]);
+
+  // ---------------------------------------------------------------------------
+  // Medidas estándar (selector de tamaño por ítem en el carrito)
+  // ---------------------------------------------------------------------------
+  // El catálogo `availableSizes` se persiste como JSON en app_settings y se
+  // expone vía useGetAppSettings (también consumido por CartContext). El PATCH
+  // tiene semántica REPLACE: enviamos siempre la lista completa post-edición
+  // para que el orden y los borrados queden reflejados sin pasos intermedios.
+  const [newSizeInput, setNewSizeInput] = useState<string>("");
+
+  const currentSizes: string[] = settingsQuery.data?.availableSizes ?? [];
+
+  const persistSizes = async (next: string[]) => {
+    await updateSettingsMut.mutateAsync({ data: { availableSizes: next } });
+    await queryClient.invalidateQueries({ queryKey: getGetAppSettingsQueryKey() });
+  };
+
+  const handleAddSize = async () => {
+    const candidate = newSizeInput.trim();
+    if (candidate.length === 0) {
+      toast.error("Escribí una medida antes de agregar");
+      return;
+    }
+    if (candidate.length > 40) {
+      toast.error("Máximo 40 caracteres");
+      return;
+    }
+    if (currentSizes.includes(candidate)) {
+      toast.error("Esa medida ya está en la lista");
+      return;
+    }
+    try {
+      await persistSizes([...currentSizes, candidate]);
+      setNewSizeInput("");
+      toast.success(`Medida “${candidate}” agregada`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al guardar");
+    }
+  };
+
+  const handleDeleteSize = async (size: string) => {
+    if (!window.confirm(`¿Borrar la medida “${size}”?`)) return;
+    try {
+      await persistSizes(currentSizes.filter((s) => s !== size));
+      toast.success(`Medida “${size}” eliminada`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al borrar");
+    }
+  };
 
   // ---------------------------------------------------------------------------
   // Categorías administrables
@@ -274,6 +324,104 @@ export function SettingsTab() {
               del sistema y no se puede borrar porque alimenta una sección
               propia de la home. No vas a poder borrar una categoría si todavía
               hay diseños usándola — primero cambialos de categoría.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-card border-card-border">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base font-bold uppercase tracking-wider">
+            <Ruler className="h-4 w-4 text-primary" />
+            Medidas estándar
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="new-size">Agregar medida disponible</Label>
+            <div className="flex gap-2">
+              <Input
+                id="new-size"
+                type="text"
+                value={newSizeInput}
+                onChange={(e) => setNewSizeInput(e.target.value)}
+                placeholder='Ej: "25x25 cm", "A4", "40x60 cm"'
+                maxLength={40}
+                className="flex-1"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void handleAddSize();
+                  }
+                }}
+              />
+              <Button
+                onClick={() => void handleAddSize()}
+                disabled={updateSettingsMut.isPending}
+                className="bg-primary hover:bg-primary/90"
+                data-testid="button-add-size"
+              >
+                {updateSettingsMut.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4 mr-2" /> Agregar
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-2 border-t border-white/10 pt-4">
+            <p className="text-sm text-white/60 font-semibold uppercase tracking-wider">
+              Medidas actuales
+            </p>
+            {settingsQuery.isLoading ? (
+              <div className="flex items-center gap-2 text-white/50 text-sm">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Cargando medidas…
+              </div>
+            ) : settingsQuery.isError ? (
+              <p className="text-sm text-red-400">No se pudo cargar el listado.</p>
+            ) : (
+              <ul className="divide-y divide-white/10 border border-white/10 rounded-sm">
+                {currentSizes.map((s) => (
+                  <li
+                    key={s}
+                    className="flex items-center justify-between px-3 py-2"
+                  >
+                    <span className="font-semibold text-white">{s}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void handleDeleteSize(s)}
+                      disabled={updateSettingsMut.isPending}
+                      className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                      data-testid={`button-delete-size-${s}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </li>
+                ))}
+                {currentSizes.length === 0 && (
+                  <li className="px-3 py-3 text-sm text-white/50">
+                    Todavía no hay medidas configuradas. Los clientes solo
+                    podrán pedir “Original” o “Personalizado”.
+                  </li>
+                )}
+              </ul>
+            )}
+          </div>
+
+          <div className="flex gap-2 text-sm text-white/60 border-t border-white/10 pt-4">
+            <Info className="h-4 w-4 shrink-0 mt-0.5 text-primary" />
+            <p>
+              Las medidas configuradas acá aparecen en el desplegable de cada
+              ítem del carrito. Si el cliente elige una medida distinta de
+              <strong> “Original”</strong> (o el modo
+              <strong> Personalizado</strong>), el pedido se marca como{" "}
+              <strong className="text-amber-200">preparación 24hs hábiles</strong>{" "}
+              y vas a recibir un email para re-exportar el archivo a esa medida.
             </p>
           </div>
         </CardContent>

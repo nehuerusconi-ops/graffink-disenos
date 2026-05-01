@@ -19,6 +19,13 @@ export interface Order {
   items: OrderItem[];
   total: number;
   isPlanchaGrouped: boolean;
+  /** True cuando el pedido necesita preparación manual antes de
+entregarse (cliente pidió "Armar plancha" o eligió una medida no-
+original en al menos un ítem). El frontend usa este flag para
+ocultar los botones de descarga inmediata y mostrar "En preparación
+· 24hs" tanto en el email de confirmación como en /mis-compras.
+ */
+  requiresManualPrep: boolean;
   paymentMethod: OrderPaymentMethod;
   status: OrderStatus;
   confirmationSource?: OrderConfirmationSource;

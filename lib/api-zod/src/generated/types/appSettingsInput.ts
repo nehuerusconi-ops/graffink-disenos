@@ -8,5 +8,14 @@
 
 export interface AppSettingsInput {
   /** @minimum 0 */
-  planchaGroupingPrice: number;
+  planchaGroupingPrice?: number;
+  /**
+   * Lista completa de medidas que reemplaza la actual. Pasá un array
+con todas las medidas que quieran ofrecerse — el backend la sustituye
+entera (no hace merge). Permite vacío si el admin sólo quiere ofrecer
+"Original" + tamaño personalizado.
+
+   * @maxItems 30
+   */
+  availableSizes?: string[];
 }

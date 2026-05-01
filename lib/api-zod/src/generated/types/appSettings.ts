@@ -12,4 +12,12 @@ export interface AppSettings {
    * @minimum 0
    */
   planchaGroupingPrice: number;
+  /** Catálogo de medidas estándar (ej. "10x10 cm", "20x20 cm") que el
+cliente puede elegir por diseño en el carrito. La opción "Original"
+no se incluye acá — siempre está disponible y representa "el archivo
+tal como lo subió el admin", entregable de forma instantánea.
+Cualquier medida distinta de "Original" obliga a re-exportar el PNG
+y dispara el plazo de 24hs hábiles.
+ */
+  availableSizes: string[];
 }

@@ -555,13 +555,19 @@ export async function sendOrderConfirmationEmail(order: Order): Promise<void> {
     order.total,
   );
 
-  // Plancha-grouped orders are NOT instantly deliverable — the admin has to
-  // manually compose the assembled plancha PNG from the selected designs and
-  // email it to the buyer. The email below adapts both the intro copy and the
-  // per-item rows to communicate this clearly: no download buttons, an
-  // explicit "24hs" delivery promise, and the Mis Compras callout is hidden
-  // until the assembled file is delivered.
-  const isPlancha = order.isPlanchaGrouped && !isLegacyPlanchaOrder(order);
+  // Orders that need manual prep are NOT instantly deliverable — the admin
+  // has to either compose the assembled plancha PNG (groupAsPlancha) or
+  // re-export each design at the requested non-original size. The email
+  // below adapts both the intro copy and the per-item rows to communicate
+  // this clearly: no download buttons, an explicit "24hs hábiles" delivery
+  // promise, and the Mis Compras callout is hidden until the prepared files
+  // are delivered. Legacy plancha orders (replacement-pricing model) are
+  // excluded so historical invoices keep working as before.
+  const isManualPrep =
+    order.requiresManualPrep && !isLegacyPlanchaOrder(order);
+  // Kept under the previous name so the existing template branches (intro,
+  // item rows, footer copy) continue to work without a sweeping rename.
+  const isPlancha = isManualPrep;
   const introHtml = isPlancha
     ? `<p style="color:#aaa; font-size:15px; margin:0 0 8px 0;">Hola <strong style="color:#fff;">${order.customerName}</strong>,</p>
             <p style="color:#aaa; font-size:15px; margin:0 0 16px 0;">Recibimos tu pago. Tu plancha está siendo armada manualmente con todos los diseños que elegiste.</p>
@@ -756,7 +762,10 @@ export async function sendPlanchaAssemblyAlertEmail(order: Order): Promise<void>
   // model (total replaced rather than added) the buyer email still ships
   // download links, so promising the admin a manual assembly job would
   // contradict what the buyer was just told. No-op in that case.
-  if (!order.isPlanchaGrouped || isLegacyPlanchaOrder(order)) return;
+  // Also no-op if the order doesn't require manual prep at all (defensive
+  // double-check — call sites already gate on this flag).
+  if (!order.requiresManualPrep) return;
+  if (order.isPlanchaGrouped && isLegacyPlanchaOrder(order)) return;
 
   const transporter = createTransporter();
   if (!transporter) return;

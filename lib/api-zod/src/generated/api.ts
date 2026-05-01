@@ -192,10 +192,28 @@ export const ListOrdersResponseItem = zod.object({
       price: zod.number(),
       quantity: zod.number(),
       imagePath: zod.string(),
+      filePath: zod.string().nullish(),
+      selectedSize: zod
+        .string()
+        .optional()
+        .describe(
+          'Medida elegida por el cliente. \"Original\" (o ausente en pedidos\nviejos) significa entrega instantánea con el archivo subido por el\nadmin. Cualquier otro valor obliga a re-exportar el PNG.\n',
+        ),
+      isCustomSize: zod
+        .boolean()
+        .optional()
+        .describe(
+          "True cuando la medida elegida no está en el catálogo estándar.\nMarca el ítem como personalizado en el panel admin y en el email.\n",
+        ),
     }),
   ),
   total: zod.number(),
   isPlanchaGrouped: zod.boolean(),
+  requiresManualPrep: zod
+    .boolean()
+    .describe(
+      'True cuando el pedido necesita preparación manual antes de\nentregarse (cliente pidió \"Armar plancha\" o eligió una medida no-\noriginal en al menos un ítem). El frontend usa este flag para\nocultar los botones de descarga inmediata y mostrar \"En preparación\n· 24hs\" tanto en el email de confirmación como en \/mis-compras.\n',
+    ),
   paymentMethod: zod.enum(["mercadopago", "transferencia", "paypal"]),
   status: zod.enum(["pending", "paid", "failed", "refunded"]),
   confirmationSource: zod
@@ -229,6 +247,19 @@ export const CreateOrderBody = zod.object({
         price: zod.number(),
         quantity: zod.number(),
         imagePath: zod.string(),
+        filePath: zod.string().nullish(),
+        selectedSize: zod
+          .string()
+          .optional()
+          .describe(
+            'Medida elegida por el cliente. \"Original\" (o ausente en pedidos\nviejos) significa entrega instantánea con el archivo subido por el\nadmin. Cualquier otro valor obliga a re-exportar el PNG.\n',
+          ),
+        isCustomSize: zod
+          .boolean()
+          .optional()
+          .describe(
+            "True cuando la medida elegida no está en el catálogo estándar.\nMarca el ítem como personalizado en el panel admin y en el email.\n",
+          ),
       }),
     )
     .min(1),
@@ -289,10 +320,28 @@ export const GetOrderResponse = zod.object({
       price: zod.number(),
       quantity: zod.number(),
       imagePath: zod.string(),
+      filePath: zod.string().nullish(),
+      selectedSize: zod
+        .string()
+        .optional()
+        .describe(
+          'Medida elegida por el cliente. \"Original\" (o ausente en pedidos\nviejos) significa entrega instantánea con el archivo subido por el\nadmin. Cualquier otro valor obliga a re-exportar el PNG.\n',
+        ),
+      isCustomSize: zod
+        .boolean()
+        .optional()
+        .describe(
+          "True cuando la medida elegida no está en el catálogo estándar.\nMarca el ítem como personalizado en el panel admin y en el email.\n",
+        ),
     }),
   ),
   total: zod.number(),
   isPlanchaGrouped: zod.boolean(),
+  requiresManualPrep: zod
+    .boolean()
+    .describe(
+      'True cuando el pedido necesita preparación manual antes de\nentregarse (cliente pidió \"Armar plancha\" o eligió una medida no-\noriginal en al menos un ítem). El frontend usa este flag para\nocultar los botones de descarga inmediata y mostrar \"En preparación\n· 24hs\" tanto en el email de confirmación como en \/mis-compras.\n',
+    ),
   paymentMethod: zod.enum(["mercadopago", "transferencia", "paypal"]),
   status: zod.enum(["pending", "paid", "failed", "refunded"]),
   confirmationSource: zod
@@ -329,6 +378,12 @@ export const RequestUploadUrlResponse = zod.object({
 
 export const createMercadoPagoPreferenceBodyItemsItemQuantityMax = 50;
 
+export const createMercadoPagoPreferenceBodyItemsItemSelectedSizeMax = 40;
+
+export const createMercadoPagoPreferenceBodyItemsItemCustomSizeWidthMax = 100;
+
+export const createMercadoPagoPreferenceBodyItemsItemCustomSizeHeightMax = 100;
+
 export const createMercadoPagoPreferenceBodyItemsMax = 50;
 
 export const CreateMercadoPagoPreferenceBody = zod.object({
@@ -348,6 +403,28 @@ export const CreateMercadoPagoPreferenceBody = zod.object({
           .number()
           .min(1)
           .max(createMercadoPagoPreferenceBodyItemsItemQuantityMax),
+        selectedSize: zod
+          .string()
+          .max(createMercadoPagoPreferenceBodyItemsItemSelectedSizeMax)
+          .optional()
+          .describe(
+            'Medida elegida por el cliente. Acepta \"Original\" (entrega\ninstantánea) o cualquier valor del catálogo configurado\n(`AppSettings.availableSizes`). Cuando se omite, el backend\nasume \"Original\".\n',
+          ),
+        customSize: zod
+          .object({
+            width: zod
+              .number()
+              .min(1)
+              .max(createMercadoPagoPreferenceBodyItemsItemCustomSizeWidthMax),
+            height: zod
+              .number()
+              .min(1)
+              .max(createMercadoPagoPreferenceBodyItemsItemCustomSizeHeightMax),
+          })
+          .optional()
+          .describe(
+            'Tamaño personalizado en cm cuando el cliente eligió un valor\nno listado en el catálogo estándar. Si está presente,\n`selectedSize` debería contener una representación textual\nderivada (ej. \"Personalizado 12x18 cm\") y el backend marca el\nítem como `isCustomSize: true`.\n',
+          ),
       }),
     )
     .min(1)
@@ -374,6 +451,12 @@ export const CreateMercadoPagoPreferenceResponse = zod.object({
 
 export const createPaypalOrderBodyItemsItemQuantityMax = 50;
 
+export const createPaypalOrderBodyItemsItemSelectedSizeMax = 40;
+
+export const createPaypalOrderBodyItemsItemCustomSizeWidthMax = 100;
+
+export const createPaypalOrderBodyItemsItemCustomSizeHeightMax = 100;
+
 export const createPaypalOrderBodyItemsMax = 50;
 
 export const CreatePaypalOrderBody = zod.object({
@@ -393,6 +476,28 @@ export const CreatePaypalOrderBody = zod.object({
           .number()
           .min(1)
           .max(createPaypalOrderBodyItemsItemQuantityMax),
+        selectedSize: zod
+          .string()
+          .max(createPaypalOrderBodyItemsItemSelectedSizeMax)
+          .optional()
+          .describe(
+            'Medida elegida por el cliente. Acepta \"Original\" (entrega\ninstantánea) o cualquier valor del catálogo configurado\n(`AppSettings.availableSizes`). Cuando se omite, el backend\nasume \"Original\".\n',
+          ),
+        customSize: zod
+          .object({
+            width: zod
+              .number()
+              .min(1)
+              .max(createPaypalOrderBodyItemsItemCustomSizeWidthMax),
+            height: zod
+              .number()
+              .min(1)
+              .max(createPaypalOrderBodyItemsItemCustomSizeHeightMax),
+          })
+          .optional()
+          .describe(
+            'Tamaño personalizado en cm cuando el cliente eligió un valor\nno listado en el catálogo estándar. Si está presente,\n`selectedSize` debería contener una representación textual\nderivada (ej. \"Personalizado 12x18 cm\") y el backend marca el\nítem como `isCustomSize: true`.\n',
+          ),
       }),
     )
     .min(1)
@@ -431,10 +536,28 @@ export const CapturePaypalOrderResponse = zod.object({
       price: zod.number(),
       quantity: zod.number(),
       imagePath: zod.string(),
+      filePath: zod.string().nullish(),
+      selectedSize: zod
+        .string()
+        .optional()
+        .describe(
+          'Medida elegida por el cliente. \"Original\" (o ausente en pedidos\nviejos) significa entrega instantánea con el archivo subido por el\nadmin. Cualquier otro valor obliga a re-exportar el PNG.\n',
+        ),
+      isCustomSize: zod
+        .boolean()
+        .optional()
+        .describe(
+          "True cuando la medida elegida no está en el catálogo estándar.\nMarca el ítem como personalizado en el panel admin y en el email.\n",
+        ),
     }),
   ),
   total: zod.number(),
   isPlanchaGrouped: zod.boolean(),
+  requiresManualPrep: zod
+    .boolean()
+    .describe(
+      'True cuando el pedido necesita preparación manual antes de\nentregarse (cliente pidió \"Armar plancha\" o eligió una medida no-\noriginal en al menos un ítem). El frontend usa este flag para\nocultar los botones de descarga inmediata y mostrar \"En preparación\n· 24hs\" tanto en el email de confirmación como en \/mis-compras.\n',
+    ),
   paymentMethod: zod.enum(["mercadopago", "transferencia", "paypal"]),
   status: zod.enum(["pending", "paid", "failed", "refunded"]),
   confirmationSource: zod
@@ -482,6 +605,11 @@ export const GetAppSettingsResponse = zod.object({
     .describe(
       'Precio en ARS del servicio \"Armar plancha\". Se SUMA al subtotal de los diseños cuando el cliente activa la opción en el carrito; no reemplaza el total.',
     ),
+  availableSizes: zod
+    .array(zod.string())
+    .describe(
+      'Catálogo de medidas estándar (ej. \"10x10 cm\", \"20x20 cm\") que el\ncliente puede elegir por diseño en el carrito. La opción \"Original\"\nno se incluye acá — siempre está disponible y representa \"el archivo\ntal como lo subió el admin\", entregable de forma instantánea.\nCualquier medida distinta de \"Original\" obliga a re-exportar el PNG\ny dispara el plazo de 24hs hábiles.\n',
+    ),
 });
 
 /**
@@ -489,10 +617,22 @@ export const GetAppSettingsResponse = zod.object({
  */
 export const updateAppSettingsBodyPlanchaGroupingPriceMin = 0;
 
+export const updateAppSettingsBodyAvailableSizesItemMax = 40;
+
+export const updateAppSettingsBodyAvailableSizesMax = 30;
+
 export const UpdateAppSettingsBody = zod.object({
   planchaGroupingPrice: zod
     .number()
-    .min(updateAppSettingsBodyPlanchaGroupingPriceMin),
+    .min(updateAppSettingsBodyPlanchaGroupingPriceMin)
+    .optional(),
+  availableSizes: zod
+    .array(zod.string().min(1).max(updateAppSettingsBodyAvailableSizesItemMax))
+    .max(updateAppSettingsBodyAvailableSizesMax)
+    .optional()
+    .describe(
+      'Lista completa de medidas que reemplaza la actual. Pasá un array\ncon todas las medidas que quieran ofrecerse — el backend la sustituye\nentera (no hace merge). Permite vacío si el admin sólo quiere ofrecer\n\"Original\" + tamaño personalizado.\n',
+    ),
 });
 
 export const updateAppSettingsResponsePlanchaGroupingPriceMin = 0;
@@ -503,6 +643,11 @@ export const UpdateAppSettingsResponse = zod.object({
     .min(updateAppSettingsResponsePlanchaGroupingPriceMin)
     .describe(
       'Precio en ARS del servicio \"Armar plancha\". Se SUMA al subtotal de los diseños cuando el cliente activa la opción en el carrito; no reemplaza el total.',
+    ),
+  availableSizes: zod
+    .array(zod.string())
+    .describe(
+      'Catálogo de medidas estándar (ej. \"10x10 cm\", \"20x20 cm\") que el\ncliente puede elegir por diseño en el carrito. La opción \"Original\"\nno se incluye acá — siempre está disponible y representa \"el archivo\ntal como lo subió el admin\", entregable de forma instantánea.\nCualquier medida distinta de \"Original\" obliga a re-exportar el PNG\ny dispara el plazo de 24hs hábiles.\n',
     ),
 });
 

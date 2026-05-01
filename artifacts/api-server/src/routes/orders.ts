@@ -32,6 +32,21 @@ router.post("/orders", requireAdmin, async (req, res): Promise<void> => {
   }
   const total = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
 
+  // Manual entries are for offline sales the admin already fulfilled, so we
+  // mark them as not requiring manual prep regardless of size selections.
+  // The flag is computed defensively from the items in case the admin marked
+  // any item with a non-original size or isCustomSize, since that would mean
+  // the order isn't yet delivered. isPlanchaGrouped stays false because the
+  // manual flow doesn't surface the grouping toggle.
+  const typedItems = items as OrderItem[];
+  const requiresManualPrep = typedItems.some(
+    (it) =>
+      it.isCustomSize === true ||
+      (typeof it.selectedSize === "string" &&
+        it.selectedSize.trim().length > 0 &&
+        it.selectedSize !== "Original"),
+  );
+
   try {
     const [row] = await db
       .insert(ordersTable)
@@ -39,8 +54,9 @@ router.post("/orders", requireAdmin, async (req, res): Promise<void> => {
         customerName: customerName.trim(),
         customerEmail: customerEmail.trim().toLowerCase(),
         customerDni: customerDni && customerDni.trim().length > 0 ? customerDni.trim() : null,
-        items: items as OrderItem[],
+        items: typedItems,
         total,
+        requiresManualPrep,
         paymentMethod,
         status: "paid",
         confirmationSource: "manual",
@@ -363,6 +379,11 @@ router.get("/orders/by-email", ordersByEmailRateLimiter, async (req, res): Promi
       total: ordersTable.total,
       paymentMethod: ordersTable.paymentMethod,
       createdAt: ordersTable.createdAt,
+      // Required by MisCompras to gate the "Descargar" button — when true,
+      // the order is in manual preparation (custom/non-original size or
+      // armar-plancha) and the buyer must wait 24hs hábiles instead of
+      // getting an immediate download.
+      requiresManualPrep: ordersTable.requiresManualPrep,
     })
     .from(ordersTable)
     .where(and(eq(ordersTable.customerEmail, email), eq(ordersTable.status, "paid")))

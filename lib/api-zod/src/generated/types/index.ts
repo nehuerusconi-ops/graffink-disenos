@@ -13,6 +13,7 @@ export * from "./category";
 export * from "./categoryInput";
 export * from "./checkoutInput";
 export * from "./checkoutInputItemsItem";
+export * from "./checkoutInputItemsItemCustomSize";
 export * from "./createMercadoPagoPreference200";
 export * from "./createPaypalOrder200";
 export * from "./errorResponse";

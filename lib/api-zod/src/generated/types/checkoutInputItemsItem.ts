@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { CheckoutInputItemsItemCustomSize } from "./checkoutInputItemsItemCustomSize";
 
 export type CheckoutInputItemsItem = {
   productId: string;
@@ -13,4 +14,20 @@ export type CheckoutInputItemsItem = {
    * @maximum 50
    */
   quantity: number;
+  /**
+   * Medida elegida por el cliente. Acepta "Original" (entrega
+instantánea) o cualquier valor del catálogo configurado
+(`AppSettings.availableSizes`). Cuando se omite, el backend
+asume "Original".
+
+   * @maxLength 40
+   */
+  selectedSize?: string;
+  /** Tamaño personalizado en cm cuando el cliente eligió un valor
+no listado en el catálogo estándar. Si está presente,
+`selectedSize` debería contener una representación textual
+derivada (ej. "Personalizado 12x18 cm") y el backend marca el
+ítem como `isCustomSize: true`.
+ */
+  customSize?: CheckoutInputItemsItemCustomSize;
 };

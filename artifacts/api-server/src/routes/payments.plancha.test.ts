@@ -65,6 +65,10 @@ const PLANCHA_PRICE = 1500;
 // we never need to set up the appSettings table in the DB stub.
 vi.mock("./settings", () => ({
   getPlanchaPriceArs: () => Promise.resolve(PLANCHA_PRICE),
+  // Empty catalog is fine — these tests only exercise "Original" sizes.
+  // Anything else would be rejected by `resolveCartItems`, which is the
+  // exact behavior we want here (kept tight on purpose).
+  readAvailableSizes: () => Promise.resolve([] as string[]),
   default: undefined,
 }));
 

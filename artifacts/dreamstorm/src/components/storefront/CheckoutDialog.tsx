@@ -18,6 +18,12 @@ type Step = "details" | "payment" | "paypal-buttons" | "processing" | "success" 
 interface ConfirmedInfo {
   invoiceNumber?: number;
   customerEmail?: string;
+  /**
+   * Echo del flag del backend tras confirmar el pago. Cuando es true, la
+   * pantalla de éxito muestra "Tu pedido se entrega en 24hs hábiles" en
+   * lugar del copy de descarga inmediata.
+   */
+  requiresManualPrep?: boolean;
 }
 
 interface PaypalRateInfo {
@@ -38,7 +44,33 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   // Use a ref to store the dbOrderId synchronously — avoids async state update issues
   // where onPaypalApprove closure could capture a stale null before setState flushes.
   const dbOrderIdRef = useRef<string | null>(null);
-  const { items, totalPrice, clearCart, groupAsPlancha } = useCart();
+  const { items, totalPrice, clearCart, groupAsPlancha, requiresManualPrep } = useCart();
+
+  // Payload helper — translates the cart's per-line `selectedSize` /
+  // `customSizeCm` into the shape the backend expects:
+  //   - "Original" → omit selectedSize so the server treats it as default.
+  //   - custom dims → send `customSize: { width, height }` and DO NOT send
+  //     selectedSize (the server derives the label).
+  //   - any other string → send as `selectedSize`; the server validates
+  //     against the live availableSizes catalog.
+  const buildItemsPayload = () =>
+    items.map((it) => {
+      if (it.customSizeCm) {
+        return {
+          productId: it.id,
+          quantity: it.quantity,
+          customSize: it.customSizeCm,
+        };
+      }
+      if (it.selectedSize && it.selectedSize !== "Original") {
+        return {
+          productId: it.id,
+          quantity: it.quantity,
+          selectedSize: it.selectedSize,
+        };
+      }
+      return { productId: it.id, quantity: it.quantity };
+    });
 
   useEffect(() => {
     if (open) {
@@ -113,10 +145,7 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           customerName: customerName.trim(),
           customerEmail: customerEmail.trim(),
           customerDni: dniForPayload(),
-          items: items.map((it) => ({
-            productId: it.id,
-            quantity: it.quantity,
-          })),
+          items: buildItemsPayload(),
           groupAsPlancha,
         }),
       });
@@ -143,10 +172,7 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
         customerName: customerName.trim(),
         customerEmail: customerEmail.trim(),
         customerDni: dniForPayload(),
-        items: items.map((it) => ({
-          productId: it.id,
-          quantity: it.quantity,
-        })),
+        items: buildItemsPayload(),
         groupAsPlancha,
       }),
     });
@@ -175,8 +201,19 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
         body: JSON.stringify({ ppOrderId: data.orderID, orderId: captureOrderId }),
       });
       if (!resp.ok) throw new Error("Error al capturar el pago");
-      const order = (await resp.json()) as { invoiceNumber: number; customerEmail: string };
-      setConfirmed({ invoiceNumber: order.invoiceNumber, customerEmail: order.customerEmail });
+      const order = (await resp.json()) as {
+        invoiceNumber: number;
+        customerEmail: string;
+        requiresManualPrep?: boolean;
+      };
+      setConfirmed({
+        invoiceNumber: order.invoiceNumber,
+        customerEmail: order.customerEmail,
+        // Fall back to the cart-side flag in case the server response shape
+        // ever drops the field — guarantees the buyer never sees the wrong
+        // delivery promise after a non-original-size purchase.
+        requiresManualPrep: order.requiresManualPrep ?? requiresManualPrep,
+      });
       setStep("success");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al procesar el pago de PayPal");
@@ -438,7 +475,14 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
               <CheckCircle2 className="w-12 h-12 text-green-400" />
             </div>
             <h3 className="text-2xl font-black uppercase tracking-tight text-white mb-2">¡Pago confirmado!</h3>
-            <p className="text-white/70 font-medium mb-2">Tus diseños fueron enviados a tu email.</p>
+            {confirmed?.requiresManualPrep ? (
+              <p className="text-white/70 font-medium mb-2">
+                Estamos preparando tus diseños. Te llegan al email en{" "}
+                <strong className="text-amber-200">24hs hábiles</strong>.
+              </p>
+            ) : (
+              <p className="text-white/70 font-medium mb-2">Tus diseños fueron enviados a tu email.</p>
+            )}
             {confirmed?.invoiceNumber != null && (
               <p className="text-xs font-mono text-white/40 mb-2">
                 Factura N° {String(confirmed.invoiceNumber).padStart(6, "0")}
@@ -447,10 +491,19 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
             {confirmed?.customerEmail && (
               <p className="text-xs text-white/40 mb-6">{confirmed.customerEmail}</p>
             )}
-            <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 mb-6 text-sm text-white/70 text-left w-full">
-              <Mail className="w-4 h-4 text-primary inline mr-2" />
-              Revisá tu bandeja de entrada (y spam) para encontrar los links de descarga de tus diseños.
-            </div>
+            {confirmed?.requiresManualPrep ? (
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 mb-6 text-sm text-amber-100/90 text-left w-full">
+                <Mail className="w-4 h-4 text-amber-300 inline mr-2" />
+                Pediste medidas no originales o el armado de plancha. Vamos a
+                exportar los archivos a tu medida y te los mandamos por email
+                dentro de las 24hs hábiles.
+              </div>
+            ) : (
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 mb-6 text-sm text-white/70 text-left w-full">
+                <Mail className="w-4 h-4 text-primary inline mr-2" />
+                Revisá tu bandeja de entrada (y spam) para encontrar los links de descarga de tus diseños.
+              </div>
+            )}
             <Button variant="ghost" onClick={handleClose} className="w-full text-white/60 hover:text-white">
               Cerrar
             </Button>

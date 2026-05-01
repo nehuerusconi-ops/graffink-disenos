@@ -71,6 +71,10 @@ function baseOrder(overrides: Partial<Order> = {}): Order {
     ],
     total: 2496,
     isPlanchaGrouped: false,
+    // Default to non-manual-prep so legacy tests don't accidentally trigger
+    // the 24hs branch. Tests that exercise that code path (plancha-grouped,
+    // custom size, non-original size) flip this explicitly via overrides.
+    requiresManualPrep: false,
     paymentMethod: "paypal",
     status: "paid",
     externalPaymentId: null,
@@ -151,6 +155,7 @@ describe("sendOrderConfirmationEmail — plancha-grouped behavior", () => {
         // Plancha fee included so the persisted total is above the per-item
         // subtotal (i.e. NOT a legacy replacement-model order).
         total: 2496 + 1500,
+        requiresManualPrep: true,
       }),
     );
 
@@ -202,6 +207,7 @@ describe("sendPlanchaAssemblyAlertEmail", () => {
       baseOrder({
         isPlanchaGrouped: true,
         total: 2496 + 1500,
+        requiresManualPrep: true,
       }),
     );
 
@@ -236,6 +242,7 @@ describe("sendPlanchaAssemblyAlertEmail", () => {
         isPlanchaGrouped: true,
         // items subtotal = 2 * 1248 = 2496; total below it triggers legacy.
         total: 1500,
+        requiresManualPrep: true,
       }),
     );
 
@@ -259,7 +266,7 @@ describe("sendPlanchaAssemblyAlertEmail", () => {
     const { sendPlanchaAssemblyAlertEmail } = await loadEmailModule();
 
     await sendPlanchaAssemblyAlertEmail(
-      baseOrder({ isPlanchaGrouped: true, total: 4000 }),
+      baseOrder({ isPlanchaGrouped: true, total: 4000, requiresManualPrep: true }),
     );
 
     expect(sendMailMock).not.toHaveBeenCalled();

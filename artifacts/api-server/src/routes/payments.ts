@@ -13,7 +13,7 @@ import {
 import { logger } from "../lib/logger";
 import { requireAdmin } from "../middlewares/requireAdmin";
 import { isValidDniOrCuit } from "../lib/dniCuit";
-import { getPlanchaPriceArs } from "./settings";
+import { getPlanchaPriceArs, readAvailableSizes } from "./settings";
 import { z } from "zod";
 
 const router: IRouter = Router();
@@ -167,9 +167,23 @@ const mpClient = new MercadoPagoConfig({ accessToken: MP_ACCESS_TOKEN });
 // Shared: cart input schema (only productId + quantity from client)
 // ---------------------------------------------------------------------------
 
+// "Original" es un valor sentinel — no se guarda en availableSizes pero el
+// frontend lo manda explícitamente. Lo aceptamos siempre. Cualquier otro valor
+// se valida contra el catálogo configurado dentro de resolveCartItems para
+// evitar que un cliente fabrique medidas arbitrarias bypassando el flujo de
+// preparación manual.
+export const ORIGINAL_SIZE_LABEL = "Original";
+
 const CartItemSchema = z.object({
   productId: z.string().min(1),
   quantity: z.number().int().min(1).max(50),
+  selectedSize: z.string().trim().min(1).max(40).optional(),
+  customSize: z
+    .object({
+      width: z.number().min(1).max(100),
+      height: z.number().min(1).max(100),
+    })
+    .optional(),
 });
 
 const CustomerInfoSchema = z.object({
@@ -227,10 +241,43 @@ async function applyPlanchaModeIfRequested(
   };
 }
 
+/**
+ * Computa si el pedido necesita preparación manual antes de poder entregarse.
+ *
+ * Devuelve true si:
+ *   - el cliente activó "Armar plancha" (el admin tiene que componer el PNG
+ *     final de la plancha), O
+ *   - cualquier ítem fue solicitado en una medida distinta de "Original" —
+ *     sea estándar (ej. "20x20 cm") o personalizada (`isCustomSize`). En
+ *     ambos casos el admin tiene que re-exportar el archivo a esa medida.
+ *
+ * Cuando devuelve true, el frontend oculta el botón de descarga inmediata,
+ * el email al cliente promete entrega en 24hs hábiles, y el admin recibe el
+ * mail de aviso de preparación manual.
+ */
+export function computeRequiresManualPrep(
+  orderItems: OrderItem[],
+  isPlanchaGrouped: boolean,
+): boolean {
+  if (isPlanchaGrouped) return true;
+  return orderItems.some(
+    (it) =>
+      it.isCustomSize === true ||
+      (typeof it.selectedSize === "string" &&
+        it.selectedSize.trim().length > 0 &&
+        it.selectedSize !== ORIGINAL_SIZE_LABEL),
+  );
+}
+
 // Resolve cart items from DB, returning authoritative products with server-side prices.
-// Rejects unknown productIds and unpublished products.
+// Rejects unknown productIds, unpublished products, and any selectedSize
+// value that isn't either "Original" or part of the configured catalog.
+// Custom sizes (free-form widthxheight) are always accepted because they
+// take a separate code path (customSize object) and are persisted with
+// `isCustomSize: true` so the admin can spot them in the panel.
 async function resolveCartItems(
   cartItems: z.infer<typeof CartItemSchema>[],
+  availableSizes: string[],
 ): Promise<{ orderItems: OrderItem[]; total: number } | { error: string }> {
   const ids = cartItems.map((c) => c.productId);
   const products = await db
@@ -239,12 +286,38 @@ async function resolveCartItems(
     .where(inArray(productsTable.id, ids));
 
   const productMap = new Map(products.map((p) => [p.id, p]));
+  const allowedSizes = new Set(availableSizes);
 
   const orderItems: OrderItem[] = [];
   for (const cartItem of cartItems) {
     const product = productMap.get(cartItem.productId);
     if (!product) return { error: `Producto no encontrado: ${cartItem.productId}` };
     if (!product.isPublished) return { error: `Producto no disponible: ${product.name}` };
+
+    // Resolve the chosen size. Three valid shapes:
+    //   1. customSize present → "Personalizado WxH cm" + isCustomSize=true.
+    //   2. selectedSize === "Original" or omitted → "Original" + standard.
+    //   3. selectedSize matches a string in the live catalog → use as-is.
+    // Anything else is rejected so a tampered client can't sneak an
+    // arbitrary string through and bypass the manual-prep flow.
+    let resolvedSize: string = ORIGINAL_SIZE_LABEL;
+    let isCustomSize = false;
+    if (cartItem.customSize) {
+      resolvedSize = `Personalizado ${cartItem.customSize.width}x${cartItem.customSize.height} cm`;
+      isCustomSize = true;
+    } else if (
+      cartItem.selectedSize === undefined ||
+      cartItem.selectedSize === ORIGINAL_SIZE_LABEL
+    ) {
+      resolvedSize = ORIGINAL_SIZE_LABEL;
+    } else if (allowedSizes.has(cartItem.selectedSize)) {
+      resolvedSize = cartItem.selectedSize;
+    } else {
+      return {
+        error: `Medida inválida para ${product.name}: "${cartItem.selectedSize}"`,
+      };
+    }
+
     orderItems.push({
       productId: product.id,
       name: product.name,
@@ -252,6 +325,8 @@ async function resolveCartItems(
       quantity: cartItem.quantity,
       imagePath: product.imagePath,
       filePath: product.filePath ?? null,
+      selectedSize: resolvedSize,
+      isCustomSize,
     });
   }
 
@@ -272,13 +347,15 @@ router.post("/payments/mercadopago/preference", async (req, res): Promise<void> 
   const { customerName, customerEmail, customerDni, items: cartItems, groupAsPlancha } = parsed.data;
 
   try {
-    const resolvedRaw = await resolveCartItems(cartItems);
+    const availableSizes = await readAvailableSizes();
+    const resolvedRaw = await resolveCartItems(cartItems, availableSizes);
     if ("error" in resolvedRaw) {
       res.status(422).json({ error: resolvedRaw.error });
       return;
     }
     const { orderItems, total, isPlanchaGrouped, planchaPrice } =
       await applyPlanchaModeIfRequested(resolvedRaw, groupAsPlancha);
+    const requiresManualPrep = computeRequiresManualPrep(orderItems, isPlanchaGrouped);
 
     // Create a pending order first to store orderId in MP external_reference
     const [order] = await db
@@ -290,6 +367,7 @@ router.post("/payments/mercadopago/preference", async (req, res): Promise<void> 
         items: orderItems,
         total,
         isPlanchaGrouped,
+        requiresManualPrep,
         paymentMethod: "mercadopago",
         status: "pending",
       })
@@ -565,7 +643,9 @@ router.post("/webhooks/mercadopago", async (req, res): Promise<void> => {
       // alert with the source files to assemble it manually. Fire-and-forget
       // (void) to keep the webhook response quick — MP retries slow webhooks
       // and the alert function already swallows + logs its own errors.
-      if (updated.isPlanchaGrouped) {
+      // Also triggers when at least one item was sold in a non-original size
+      // (standard or custom) since the admin still has to re-export the PNG.
+      if (updated.requiresManualPrep) {
         void sendPlanchaAssemblyAlertEmail(updated);
       }
     }
@@ -620,13 +700,15 @@ router.post("/payments/paypal/create-order", async (req, res): Promise<void> => 
   const { customerName, customerEmail, customerDni, items: cartItems, groupAsPlancha } = parsed.data;
 
   try {
-    const resolvedRaw = await resolveCartItems(cartItems);
+    const availableSizes = await readAvailableSizes();
+    const resolvedRaw = await resolveCartItems(cartItems, availableSizes);
     if ("error" in resolvedRaw) {
       res.status(422).json({ error: resolvedRaw.error });
       return;
     }
     const { orderItems, total, isPlanchaGrouped } =
       await applyPlanchaModeIfRequested(resolvedRaw, groupAsPlancha);
+    const requiresManualPrep = computeRequiresManualPrep(orderItems, isPlanchaGrouped);
 
     // Resolve the ARS→USD rate BEFORE creating the order so we can persist it
     // alongside the row. Storing the rate gives an audit trail of which tasa
@@ -644,6 +726,7 @@ router.post("/payments/paypal/create-order", async (req, res): Promise<void> => 
         items: orderItems,
         total,
         isPlanchaGrouped,
+        requiresManualPrep,
         paymentMethod: "paypal",
         status: "pending",
         arsToUsdRate: arsToUsd.toString(),
@@ -899,10 +982,11 @@ router.post("/payments/paypal/capture-order", async (req, res): Promise<void> =>
 
     if (updated) {
       await sendOrderConfirmationEmail(updated);
-      // See MP webhook above for why plancha-grouped orders trigger a
-      // separate admin alert. Fire-and-forget so the buyer's PayPal capture
-      // response isn't held up by SMTP.
-      if (updated.isPlanchaGrouped) {
+      // See MP webhook above for why orders requiring manual prep trigger a
+      // separate admin alert (plancha grouping OR non-original sizes).
+      // Fire-and-forget so the buyer's PayPal capture response isn't held up
+      // by SMTP.
+      if (updated.requiresManualPrep) {
         void sendPlanchaAssemblyAlertEmail(updated);
       }
     }

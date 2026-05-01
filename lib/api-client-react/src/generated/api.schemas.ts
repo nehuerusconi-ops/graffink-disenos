@@ -5,6 +5,27 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+/**
+ * Tamaño personalizado en cm cuando el cliente eligió un valor
+no listado en el catálogo estándar. Si está presente,
+`selectedSize` debería contener una representación textual
+derivada (ej. "Personalizado 12x18 cm") y el backend marca el
+ítem como `isCustomSize: true`.
+
+ */
+export type CheckoutInputItemsItemCustomSize = {
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  width: number;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  height: number;
+};
+
 export type CheckoutInputItemsItem = {
   productId: string;
   /**
@@ -12,6 +33,22 @@ export type CheckoutInputItemsItem = {
    * @maximum 50
    */
   quantity: number;
+  /**
+   * Medida elegida por el cliente. Acepta "Original" (entrega
+instantánea) o cualquier valor del catálogo configurado
+(`AppSettings.availableSizes`). Cuando se omite, el backend
+asume "Original".
+
+   * @maxLength 40
+   */
+  selectedSize?: string;
+  /** Tamaño personalizado en cm cuando el cliente eligió un valor
+no listado en el catálogo estándar. Si está presente,
+`selectedSize` debería contener una representación textual
+derivada (ej. "Personalizado 12x18 cm") y el backend marca el
+ítem como `isCustomSize: true`.
+ */
+  customSize?: CheckoutInputItemsItemCustomSize;
 };
 
 export interface CheckoutInput {
@@ -43,11 +80,28 @@ export interface AppSettings {
    * @minimum 0
    */
   planchaGroupingPrice: number;
+  /** Catálogo de medidas estándar (ej. "10x10 cm", "20x20 cm") que el
+cliente puede elegir por diseño en el carrito. La opción "Original"
+no se incluye acá — siempre está disponible y representa "el archivo
+tal como lo subió el admin", entregable de forma instantánea.
+Cualquier medida distinta de "Original" obliga a re-exportar el PNG
+y dispara el plazo de 24hs hábiles.
+ */
+  availableSizes: string[];
 }
 
 export interface AppSettingsInput {
   /** @minimum 0 */
-  planchaGroupingPrice: number;
+  planchaGroupingPrice?: number;
+  /**
+   * Lista completa de medidas que reemplaza la actual. Pasá un array
+con todas las medidas que quieran ofrecerse — el backend la sustituye
+entera (no hace merge). Permite vacío si el admin sólo quiere ofrecer
+"Original" + tamaño personalizado.
+
+   * @maxItems 30
+   */
+  availableSizes?: string[];
 }
 
 export interface ProductSpec {
@@ -127,6 +181,17 @@ export interface OrderItem {
   price: number;
   quantity: number;
   imagePath: string;
+  /** @nullable */
+  filePath?: string | null;
+  /** Medida elegida por el cliente. "Original" (o ausente en pedidos
+viejos) significa entrega instantánea con el archivo subido por el
+admin. Cualquier otro valor obliga a re-exportar el PNG.
+ */
+  selectedSize?: string;
+  /** True cuando la medida elegida no está en el catálogo estándar.
+Marca el ítem como personalizado en el panel admin y en el email.
+ */
+  isCustomSize?: boolean;
 }
 
 export type OrderPaymentMethod =
@@ -166,6 +231,13 @@ export interface Order {
   items: OrderItem[];
   total: number;
   isPlanchaGrouped: boolean;
+  /** True cuando el pedido necesita preparación manual antes de
+entregarse (cliente pidió "Armar plancha" o eligió una medida no-
+original en al menos un ítem). El frontend usa este flag para
+ocultar los botones de descarga inmediata y mostrar "En preparación
+· 24hs" tanto en el email de confirmación como en /mis-compras.
+ */
+  requiresManualPrep: boolean;
   paymentMethod: OrderPaymentMethod;
   status: OrderStatus;
   confirmationSource?: OrderConfirmationSource;

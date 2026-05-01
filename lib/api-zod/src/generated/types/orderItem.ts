@@ -12,4 +12,15 @@ export interface OrderItem {
   price: number;
   quantity: number;
   imagePath: string;
+  /** @nullable */
+  filePath?: string | null;
+  /** Medida elegida por el cliente. "Original" (o ausente en pedidos
+viejos) significa entrega instantánea con el archivo subido por el
+admin. Cualquier otro valor obliga a re-exportar el PNG.
+ */
+  selectedSize?: string;
+  /** True cuando la medida elegida no está en el catálogo estándar.
+Marca el ítem como personalizado en el panel admin y en el email.
+ */
+  isCustomSize?: boolean;
 }

@@ -42,6 +42,7 @@ process.env["PAYPAL_ARS_TO_USD_RATE"] = "1000";
 // ─── Mock the plancha-price setter (unused here but keeps imports clean) ──
 vi.mock("./settings", () => ({
   getPlanchaPriceArs: () => Promise.resolve(0),
+  readAvailableSizes: () => Promise.resolve([] as string[]),
   default: undefined,
 }));
 
