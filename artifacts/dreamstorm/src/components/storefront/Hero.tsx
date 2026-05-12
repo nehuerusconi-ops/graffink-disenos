@@ -20,7 +20,7 @@ export function Hero() {
   };
 
   return (
-    <section id="hero" className="relative min-h-[100dvh] flex items-center justify-center overflow-hidden pt-20">
+    <section id="hero" className="relative min-h-dvh flex items-center justify-center overflow-hidden pt-20">
       {/* Background Image */}
       <div className="absolute inset-0 z-0">
         <img
@@ -28,7 +28,7 @@ export function Hero() {
           alt="DTF Printing Studio"
           className="w-full h-full object-cover opacity-40"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/60 to-background"></div>
+        <div className="absolute inset-0 bg-linear-to-b from-background/80 via-background/60 to-background"></div>
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent"></div>
       </div>
 
@@ -53,7 +53,7 @@ export function Hero() {
           className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter text-white mb-6 max-w-4xl leading-[1.1]"
         >
           DISEÑOS DTF <br className="hidden md:block" />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-400">PROFESIONALES</span> <br className="hidden md:block" />
+          <span className="text-transparent bg-clip-text bg-linear-to-r from-primary to-blue-400">PROFESIONALES</span> <br className="hidden md:block" />
           LISTOS PARA IMPRIMIR
         </motion.h1>
 

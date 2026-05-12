@@ -11,12 +11,6 @@ import { logger } from "./lib/logger";
 
 const app: Express = express();
 
-// The api-server always sits behind exactly one trusted hop: the Replit shared
-// proxy (mTLS-authenticated, see pnpm-workspace skill). Trusting one hop lets
-// Express derive `req.ip` from the rightmost X-Forwarded-For entry, which is
-// the value the trusted proxy appended — i.e. the real client IP, regardless
-// of any client-supplied XFF prefix. This is required for `express-rate-limit`
-// to key per real client IP without being bypassed by header spoofing.
 app.set("trust proxy", 1);
 
 app.use(
@@ -41,11 +35,33 @@ app.use(
 
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
-app.use(cors({ credentials: true, origin: true }));
+app.use(
+  cors({
+    credentials: true,
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (origin.includes("localhost")) return callback(null, true);
+      callback(null, true);
+    },
+  }),
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(clerkMiddleware());
+app.use(
+  clerkMiddleware({
+    secretKey: process.env.CLERK_SECRET_KEY,
+    publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
+   authorizedParties: [
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "http://127.0.0.1:5173",
+      "http://127.0.0.1:5174",
+      "https://national-deer-42.clerk.accounts.dev",
+    ],
+  }),
+);
 
 app.use("/api", router);
 

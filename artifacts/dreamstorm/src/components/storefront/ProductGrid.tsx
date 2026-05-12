@@ -19,25 +19,73 @@ export function ProductGrid({
   const [searchQuery, setSearchQuery] = useState("");
   const categoriesQuery = useListCategories();
 
-  // Storefront filter pills — all admin-managed categories except the
-  // reserved "Plancha armada" slot, which has its own dedicated section.
+  // Hooks SIEMPRE arriba
   const storefrontCategories = useMemo<string[]>(() => {
-    const rows = categoriesQuery.data ?? [];
+    if (!categoriesQuery.data) return [];
+
+    const data = categoriesQuery.data as unknown;
+    const rows = Array.isArray(data)
+      ? data
+      : Array.isArray((data as any)?.data)
+      ? (data as any).data
+      : Array.isArray((data as any)?.categories)
+      ? (data as any).categories
+      : [];
+
     return rows
-      .filter((c) => c.name !== PLANCHA_ARMADA_CATEGORY)
-      .map((c) => c.name);
+      .filter((c: any) => c && c.name && c.name !== PLANCHA_ARMADA_CATEGORY)
+      .map((c: any) => c.name);
   }, [categoriesQuery.data]);
 
   const filteredProducts = useMemo(() => {
     return products
-      // Hide pre-built planchas from the main grid; they live in their own section.
       .filter((p) => p.category !== PLANCHA_ARMADA_CATEGORY)
       .filter((product) => {
-        const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesCategory = selectedCategory === "All" || product.category === selectedCategory;
+        const matchesSearch = product.name
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase());
+
+        const matchesCategory =
+          selectedCategory === "All" ||
+          product.category === selectedCategory;
+
         return matchesSearch && matchesCategory;
       });
   }, [products, searchQuery, selectedCategory]);
+
+  // Loading state
+  if (categoriesQuery.isLoading) {
+    return (
+      <section id="products" className="py-24 bg-background relative z-10">
+        <div className="container px-4 md:px-6 mx-auto">
+          <div className="flex items-center justify-center py-24">
+            <Loader2 className="h-8 w-8 animate-spin text-white/40" />
+            <span className="ml-2 text-white/70">Cargando...</span>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Error state
+  if (categoriesQuery.error) {
+    console.error("Error loading categories:", categoriesQuery.error);
+
+    return (
+      <section id="products" className="py-24 bg-background relative z-10">
+        <div className="container px-4 md:px-6 mx-auto">
+          <div className="text-center py-24">
+            <p className="text-red-400">
+              Error al cargar las categorías
+            </p>
+            <p className="text-white/50 text-sm mt-2">
+              Por favor, recarga la página
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section id="products" className="py-24 bg-background relative z-10">
@@ -47,6 +95,7 @@ export function ProductGrid({
             <h2 className="text-3xl md:text-5xl font-black uppercase tracking-tighter mb-4 text-white">
               Todos los <span className="text-primary">diseños</span>
             </h2>
+
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => onCategorySelect("All")}
@@ -58,6 +107,7 @@ export function ProductGrid({
               >
                 Todos
               </button>
+
               {storefrontCategories.map((cat) => (
                 <button
                   key={cat}
@@ -76,6 +126,7 @@ export function ProductGrid({
 
           <div className="relative w-full md:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50" />
+
             <Input
               type="text"
               placeholder="Buscar por nombre..."
@@ -92,9 +143,15 @@ export function ProductGrid({
           </div>
         ) : filteredProducts.length === 0 ? (
           <div className="text-center py-24 border border-dashed border-white/10 rounded-sm">
-            <p className="text-xl text-white/50 font-medium">No se encontraron diseños.</p>
+            <p className="text-xl text-white/50 font-medium">
+              No se encontraron diseños.
+            </p>
+
             <button
-              onClick={() => { setSearchQuery(""); onCategorySelect("All"); }}
+              onClick={() => {
+                setSearchQuery("");
+                onCategorySelect("All");
+              }}
               className="mt-4 text-primary hover:underline font-bold"
             >
               Limpiar filtros
@@ -103,7 +160,11 @@ export function ProductGrid({
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {filteredProducts.map((product, idx) => (
-              <ProductCard key={product.id} product={product} index={idx} />
+              <ProductCard
+                key={product.id}
+                product={product}
+                index={idx}
+              />
             ))}
           </div>
         )}

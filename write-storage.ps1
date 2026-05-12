@@ -1,3 +1,4 @@
+$content = @'
 import { v2 as cloudinary } from "cloudinary";
 import { randomUUID } from "crypto";
 
@@ -110,3 +111,9 @@ export class ObjectStorageService {
     return !!userId;
   }
 }
+'@
+
+$path = "artifacts\api-server\src\lib\objectStorage.ts"
+[System.IO.File]::WriteAllText((Resolve-Path $path), $content, [System.Text.UTF8Encoding]::new($false))
+Write-Host "Archivo escrito correctamente" -ForegroundColor Green
+Get-Content $path | Measure-Object -Line

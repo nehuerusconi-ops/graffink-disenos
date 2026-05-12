@@ -235,7 +235,7 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
         onOpenChange(o);
       }
     }}>
-      <DialogContent className="sm:max-w-[440px] bg-background border-white/10 p-0 overflow-hidden">
+    <DialogContent className="sm:max-w-110 bg-background border-white/10 p-0 overflow-hidden">
 
         {/* ── Step: details ── */}
         {step === "details" && (
@@ -315,9 +315,10 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
               {/* Transferencia bancaria */}
               <button
                 onClick={() => setStep("transferencia-instructions")}
-                className="group w-full flex items-center gap-3 p-4 bg-gradient-to-br from-emerald-700 to-emerald-600 rounded-xl border border-white/10 hover:border-white/30 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-emerald-500/40 transition-all duration-200"
+               className="group w-full flex items-center gap-3 p-4 bg-linear-to-br from-emerald-700 to-emerald-600 rounded-xl border border-white/10 hover:border-white/30 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-emerald-500/40 transition-all duration-200"
+              
               >
-                <div className="bg-white rounded-lg p-2 shrink-0 shadow-sm flex items-center justify-center h-[56px] w-[56px]">
+                <div className="bg-white rounded-lg p-2 shrink-0 shadow-sm flex items-center justify-center h-14 w-14">
                   <Landmark className="h-8 w-8 text-emerald-700" />
                 </div>
                 <div className="flex-1 text-left min-w-0">
@@ -340,7 +341,7 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                 onClick={() => setStep("paypal-buttons")}
                 className="group w-full flex items-center gap-3 p-4 bg-[#003087] rounded-xl border border-white/10 hover:border-white/30 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-blue-900/50 transition-all duration-200"
               >
-                <div className="bg-white rounded-lg p-2 shrink-0 shadow-sm flex items-center justify-center h-[56px] w-[56px]">
+                <div className="bg-white rounded-lg p-2 shrink-0 shadow-sm flex items-center justify-center h-14 w-14">
                   <PaypalLogoWhite className="h-8 w-auto [&_text]:fill-[#003087] [&_circle:first-child]:fill-[#003087]/10 [&_circle:nth-child(2)]:fill-[#003087]" />
                 </div>
                 <div className="flex-1 text-left min-w-0">
@@ -405,7 +406,7 @@ export function CheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenCh
               </button>
 
               {/* Exchange rate disclosure — buyers see exactly what PayPal will charge in USD */}
-              <div className="bg-gradient-to-br from-[#003087]/30 to-[#003087]/10 border border-[#FFC439]/30 rounded-lg p-4">
+             <div className="bg-linear-to-br from-[#003087]/30 to-[#003087]/10 border border-[#FFC439]/30 rounded-lg p-4">
                 {paypalRateLoading && !usdAmount ? (
                   <div className="flex items-center gap-2 text-white/70 text-sm">
                     <Loader2 className="w-4 h-4 animate-spin" /> Calculando el monto en USD…
@@ -576,7 +577,7 @@ function TransferenciaStep({
 
   return (
     <div className="flex flex-col">
-      <div className="p-6 border-b border-white/10 bg-gradient-to-r from-emerald-700/20 to-emerald-600/10">
+      <div className="p-6 border-b border-white/10 bg-linear-to-r from-emerald-700/20 to-emerald-600/10">
         <DialogHeader>
           <DialogTitle className="text-2xl font-black uppercase tracking-tight text-white mb-1">
             Pagar por transferencia

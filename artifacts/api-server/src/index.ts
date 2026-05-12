@@ -1,7 +1,17 @@
-import app from "./app";
-import { logger } from "./lib/logger";
-import { startWebhookAlertLogCleanupJob } from "./lib/email";
-import { seedCategoriesIfEmpty } from "./routes/categories";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { config as loadEnv } from "dotenv";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+loadEnv({ path: path.resolve(__dirname, "../.env") });
+
+const [{ default: app }, { logger }, { startWebhookAlertLogCleanupJob }, { seedCategoriesIfEmpty }] =
+  await Promise.all([
+    import("./app.js"),
+    import("./lib/logger.js"),
+    import("./lib/email.js"),
+    import("./routes/categories.js"),
+  ]);
 
 const rawPort = process.env["PORT"];
 

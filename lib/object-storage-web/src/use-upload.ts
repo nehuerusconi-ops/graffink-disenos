@@ -16,6 +16,8 @@ interface UploadResponse {
 interface UseUploadOptions {
   /** Base path where object storage routes are mounted (default: "/api/storage") */
   basePath?: string;
+  /** Optional Authorization header to send to the upload backend */
+  authHeader?: string;
   onSuccess?: (response: UploadResponse) => void;
   onError?: (error: Error) => void;
 }
@@ -61,11 +63,17 @@ export function useUpload(options: UseUploadOptions = {}) {
 
   const requestUploadUrl = useCallback(
     async (file: File): Promise<UploadResponse> => {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+
+      if (options.authHeader) {
+        headers.Authorization = options.authHeader;
+      }
+
       const response = await fetch(`${basePath}/uploads/request-url`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify({
           name: file.name,
           size: file.size,
@@ -136,11 +144,17 @@ export function useUpload(options: UseUploadOptions = {}) {
       url: string;
       headers?: Record<string, string>;
     }> => {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+
+      if (options.authHeader) {
+        headers.Authorization = options.authHeader;
+      }
+
       const response = await fetch(`${basePath}/uploads/request-url`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify({
           name: file.name,
           size: file.size,

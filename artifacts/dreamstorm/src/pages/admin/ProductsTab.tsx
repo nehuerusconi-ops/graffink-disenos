@@ -7,6 +7,7 @@ import {
   useListCategories,
 } from "@workspace/api-client-react";
 import type { Product as ApiProduct } from "@workspace/api-client-react";
+import { useAuth } from "@clerk/react";
 import { uploadFile } from "@/lib/uploadFile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -106,10 +107,15 @@ export function ProductsTab() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const { getToken } = useAuth();
+
   const handleImageUpload = async (file: File) => {
     setImageUploading(true);
     try {
-      const path = await uploadFile(file);
+      const token = await getToken();
+      if (!token) throw new Error("No se pudo obtener el token de autenticación");
+
+      const path = await uploadFile(file, `Bearer ${token}`);
       setForm((f) => ({ ...f, imagePath: path }));
       toast.success("Imagen subida");
     } catch (err) {
@@ -122,7 +128,10 @@ export function ProductsTab() {
   const handleFileUpload = async (file: File) => {
     setFileUploading(true);
     try {
-      const path = await uploadFile(file);
+      const token = await getToken();
+      if (!token) throw new Error("No se pudo obtener el token de autenticación");
+
+      const path = await uploadFile(file, `Bearer ${token}`);
       setForm((f) => ({ ...f, filePath: path }));
       toast.success("Archivo PNG subido");
     } catch (err) {

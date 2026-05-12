@@ -1,11 +1,13 @@
+import { useEffect } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { ClerkProvider } from "@clerk/react";
+import { ClerkProvider, useAuth } from "@clerk/react";
 import { dark } from "@clerk/themes";
 import { Router, Route, Switch } from "wouter";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CartProvider } from "@/components/storefront/CartContext";
 import { queryClient } from "@/lib/queryClient";
+import { setAuthTokenGetter } from "@workspace/api-client-react";
 import Home from "@/pages/Home";
 import SignInPage from "@/pages/SignIn";
 import SignUpPage from "@/pages/SignUp";
@@ -18,6 +20,27 @@ const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as
   | undefined;
 
 const BASE = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
+
+function AuthTokenInitializer() {
+  const { getToken } = useAuth();
+
+  useEffect(() => {
+    setAuthTokenGetter(async () => {
+      try {
+        return await getToken();
+      } catch (error) {
+        console.warn("Failed to resolve Clerk token for API auth:", error);
+        return null;
+      }
+    });
+
+    return () => {
+      setAuthTokenGetter(null);
+    };
+  }, [getToken]);
+
+  return null;
+}
 
 function MissingClerkConfig() {
   return (
@@ -48,8 +71,8 @@ function App() {
         : {})}
       signInUrl="/sign-in"
       signUpUrl="/sign-up"
-      signInFallbackRedirectUrl="/admin"
-      signUpFallbackRedirectUrl="/admin"
+      afterSignInUrl="/"
+      afterSignUpUrl="/"
       appearance={{
         baseTheme: dark,
         layout: {
@@ -74,6 +97,7 @@ function App() {
         },
       }}
     >
+      <AuthTokenInitializer />
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <CartProvider>

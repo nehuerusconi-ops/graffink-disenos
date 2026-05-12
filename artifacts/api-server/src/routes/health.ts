@@ -3,9 +3,16 @@ import { HealthCheckResponse } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
+function healthResponse() {
+  return HealthCheckResponse.parse({ status: "ok" });
+}
+
+router.get("/health", (_req, res) => {
+  res.json(healthResponse());
+});
+
 router.get("/healthz", (_req, res) => {
-  const data = HealthCheckResponse.parse({ status: "ok" });
-  res.json(data);
+  res.json(healthResponse());
 });
 
 export default router;
