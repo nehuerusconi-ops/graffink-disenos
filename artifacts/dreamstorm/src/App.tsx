@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+git statusimport { useEffect } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ClerkProvider, useAuth } from "@clerk/react";
 import { dark } from "@clerk/themes";
@@ -71,8 +71,6 @@ function App() {
         : {})}
       signInUrl="/sign-in"
       signUpUrl="/sign-up"
-      afterSignInUrl="/"
-      afterSignUpUrl="/"
       appearance={{
         baseTheme: dark,
         layout: {
