@@ -1,6 +1,6 @@
 [build]
   command = "pnpm --dir artifacts/dreamstorm run build"
-  publish = "artifacts/dreamstorm/dist"
+  publish = "artifacts/dreamstorm/dist/public"
   functions = "netlify/functions"
 
 [[redirects]]

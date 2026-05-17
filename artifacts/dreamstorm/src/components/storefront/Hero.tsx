@@ -83,7 +83,21 @@ export function Hero() {
       </div>
 
       {/* Noise overlay */}
-      <div className="pointer-events-none absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay z-0"></div>
+      <svg
+        className="pointer-events-none absolute inset-0 w-full h-full opacity-20 mix-blend-overlay z-0"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <filter id="noise">
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.65"
+            numOctaves="3"
+            stitchTiles="stitch"
+          />
+          <feColorMatrix type="saturate" values="0" />
+        </filter>
+        <rect width="100%" height="100%" filter="url(#noise)" />
+      </svg>
     </section>
   );
 }
